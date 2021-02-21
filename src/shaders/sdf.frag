@@ -31,6 +31,12 @@ float sdf_gyroid(vec3 p, float scale, float thickness) {
     return (abs(dot(sin(p), cos(p.zxy))) / scale - thickness) * 0.7;
 }
 
+float sdf_schwarzP(vec3 p, float scale, float thickness) {
+    p *= scale;
+    float implicit = abs(cos(p.x) + cos(p.y) + cos(p.z));
+    return ((implicit / length(sin(p))) / scale - thickness);
+}
+
 float sdf_union(float d1, float d2) {
     return min(d1, d2);
 }
@@ -49,18 +55,19 @@ float sdf_smooth_union( float d1, float d2, float k ) {
 }
 
 float sdf(vec3 p) {
-    float s = sdf_sphere(p + vec3(1.0, 0.0, 0.0));
+    // float s = sdf_sphere(p + vec3(1.0, 0.0, 0.0));
     // float s2 = sdBox(p + vec3(-2.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
     // return opSmoothUnion(s, s2, 0.5);
-    float gyroid = sdf_gyroid(p, 10.0, 0.02);
+    // float gyroid = sdf_gyroid(p, 10.0, 0.02);
+    float schwartz = sdf_schwarzP(p, 10.0, 0.03);
     float b = sdf_box(p + vec3(-1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
-    float i = intersect(gyroid, b);
+    float i = intersect(schwartz, b);
+    // float u = sdf_smooth_union(s, i, 0.7);
+    return i;
 
-    float u = sdf_smooth_union(s, i, 0.7);
+    // float c = sdf_cylinder(p + vec3(-2.0, 0.0, 0.0), 1.1, 1.0);
 
-    float c = sdf_cylinder(p + vec3(-2.0, 0.0, 0.0), 1.1, 1.0);
-
-    return subtract(c, u);
+    // return subtract(c, u);
 }
 
 struct Intersection {
