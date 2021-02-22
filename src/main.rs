@@ -1,5 +1,5 @@
 use camera::{ArcballCamera, Camera};
-use tree::CSG;
+use tree::CsgTree;
 use ultraviolet::Vec3;
 use winit::{
     event::{Event, WindowEvent},
@@ -8,7 +8,9 @@ use winit::{
 };
 
 mod camera;
+mod op;
 mod sdf;
+mod shapes;
 mod tree;
 
 async fn run(event_loop: EventLoop<()>, window: Window) -> ! {
@@ -51,14 +53,14 @@ async fn run(event_loop: EventLoop<()>, window: Window) -> ! {
 
     let mut swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
-    let mut camera = ArcballCamera::new(10.0, 1.0);
+    let mut camera = ArcballCamera::new(10.0, 0.3);
     let light = Vec3::new(10.0, 30.0, 30.0);
     let fov = 45.0;
 
     camera.resize(size, fov, 0.1);
     sdf_renderer.write_uniforms(&queue, &camera, light, size, fov);
 
-    let csg = CSG::new_example();
+    let csg = CsgTree::new_example();
     print!("{}", csg);
 
     event_loop.run(move |event, _, control_flow| {
