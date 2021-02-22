@@ -60,7 +60,7 @@ float sdf(vec3 p) {
     // return opSmoothUnion(s, s2, 0.5);
     // float gyroid = sdf_gyroid(p, 10.0, 0.02);
     float schwartz = sdf_schwarzP(p, 10.0, 0.03);
-    float b = sdf_box(p + vec3(-1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
+    float b = sdf_box(p + vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
     float i = intersect(schwartz, b);
     // float u = sdf_smooth_union(s, i, 0.7);
     return i;

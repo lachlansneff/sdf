@@ -5,93 +5,93 @@ use std::{
 
 use ultraviolet::{Vec2, Vec3};
 
-#[derive(Debug, Clone)]
-pub struct Op2 {
-    pub x: Op,
-    pub y: Op,
-}
-#[derive(Debug, Clone)]
-pub struct Op3 {
-    pub x: Op,
-    pub y: Op,
-    pub z: Op,
-}
+// #[derive(Debug, Clone)]
+// pub struct Op2 {
+//     pub x: Op,
+//     pub y: Op,
+// }
+// #[derive(Debug, Clone)]
+// pub struct Op3 {
+//     pub x: Op,
+//     pub y: Op,
+//     pub z: Op,
+// }
 
-macro_rules! impl_op_vec {
-    ($vec:ty [$($component:ident),*]) => {
-        impl_op_vec!($vec [$($component),*] => Add::add);
-        impl_op_vec!($vec [$($component),*] => Add::add[f32]);
-        impl_op_vec!($vec [$($component),*] => Add::add[Op]);
+// macro_rules! impl_op_vec {
+//     ($vec:ty [$($component:ident),*]) => {
+//         impl_op_vec!($vec [$($component),*] => Add::add);
+//         impl_op_vec!($vec [$($component),*] => Add::add[f32]);
+//         impl_op_vec!($vec [$($component),*] => Add::add[Op]);
 
-        impl_op_vec!($vec [$($component),*] => Sub::sub);
-        impl_op_vec!($vec [$($component),*] => Sub::sub[f32]);
-        impl_op_vec!($vec [$($component),*] => Sub::sub[Op]);
+//         impl_op_vec!($vec [$($component),*] => Sub::sub);
+//         impl_op_vec!($vec [$($component),*] => Sub::sub[f32]);
+//         impl_op_vec!($vec [$($component),*] => Sub::sub[Op]);
 
-        impl_op_vec!($vec [$($component),*] => Mul::mul);
-        impl_op_vec!($vec [$($component),*] => Mul::mul[f32]);
-        impl_op_vec!($vec [$($component),*] => Mul::mul[Op]);
+//         impl_op_vec!($vec [$($component),*] => Mul::mul);
+//         impl_op_vec!($vec [$($component),*] => Mul::mul[f32]);
+//         impl_op_vec!($vec [$($component),*] => Mul::mul[Op]);
 
-        impl_op_vec!($vec [$($component),*] => Div::div);
-        impl_op_vec!($vec [$($component),*] => Div::div[f32]);
-        impl_op_vec!($vec [$($component),*] => Div::div[Op]);
+//         impl_op_vec!($vec [$($component),*] => Div::div);
+//         impl_op_vec!($vec [$($component),*] => Div::div[f32]);
+//         impl_op_vec!($vec [$($component),*] => Div::div[Op]);
 
-        impl Neg for $vec {
-            type Output = Self;
+//         impl Neg for $vec {
+//             type Output = Self;
 
-            fn neg(self) -> Self {
-                Self {
-                    $($component: Neg::neg(self.$component),)*
-                }
-            }
-        }
+//             fn neg(self) -> Self {
+//                 Self {
+//                     $($component: Neg::neg(self.$component),)*
+//                 }
+//             }
+//         }
 
-        impl $vec {
-            pub fn new($($component: Op,)*) -> Self {
-                Self { $($component,)* }
-            }
-            pub fn splat(v: f32) -> Self {
-                Self { $($component: Op::Const(v),)* }
-            }
-            pub fn abs(self) -> Self {
-                Self { $($component: self.$component.abs(),)* }
-            }
-            pub fn max(self, rhs: Self) -> Self {
-                Self { $($component: self.$component.max(rhs.$component),)* }
-            }
-            pub fn sin(self) -> Self {
-                Self { $($component: self.$component.sin(),)* }
-            }
-            pub fn cos(self) -> Self {
-                Self { $($component: self.$component.cos(),)* }
-            }
-        }
-    };
-    ($vec:ty [$($component:ident),*] => $trait:ident::$trait_fn:ident) => {
-        impl $trait<Self> for $vec {
-            type Output = Self;
+//         impl $vec {
+//             pub fn new($($component: Op,)*) -> Self {
+//                 Self { $($component,)* }
+//             }
+//             pub fn splat(v: f32) -> Self {
+//                 Self { $($component: Op::Const(v),)* }
+//             }
+//             pub fn abs(self) -> Self {
+//                 Self { $($component: self.$component.abs(),)* }
+//             }
+//             pub fn max(self, rhs: Self) -> Self {
+//                 Self { $($component: self.$component.max(rhs.$component),)* }
+//             }
+//             pub fn sin(self) -> Self {
+//                 Self { $($component: self.$component.sin(),)* }
+//             }
+//             pub fn cos(self) -> Self {
+//                 Self { $($component: self.$component.cos(),)* }
+//             }
+//         }
+//     };
+//     ($vec:ty [$($component:ident),*] => $trait:ident::$trait_fn:ident) => {
+//         impl $trait<Self> for $vec {
+//             type Output = Self;
 
-            fn $trait_fn(self, other: Self) -> Self {
-                Self {
-                    $($component: $trait::$trait_fn(self.$component, other.$component),)*
-                }
-            }
-        }
-    };
-    ($vec:ty [$($component:ident),*] => $trait:ident::$trait_fn:ident[$rhs:ty]) => {
-        impl $trait<$rhs> for $vec {
-            type Output = Self;
+//             fn $trait_fn(self, other: Self) -> Self {
+//                 Self {
+//                     $($component: $trait::$trait_fn(self.$component, other.$component),)*
+//                 }
+//             }
+//         }
+//     };
+//     ($vec:ty [$($component:ident),*] => $trait:ident::$trait_fn:ident[$rhs:ty]) => {
+//         impl $trait<$rhs> for $vec {
+//             type Output = Self;
 
-            fn $trait_fn(self, other: $rhs) -> Self {
-                Self {
-                    $($component: $trait::$trait_fn(self.$component, other.clone()),)*
-                }
-            }
-        }
-    };
-}
+//             fn $trait_fn(self, other: $rhs) -> Self {
+//                 Self {
+//                     $($component: $trait::$trait_fn(self.$component, other.clone()),)*
+//                 }
+//             }
+//         }
+//     };
+// }
 
-impl_op_vec!(Op2 [x, y]);
-impl_op_vec!(Op3 [x, y, z]);
+// impl_op_vec!(Op2 [x, y]);
+// impl_op_vec!(Op3 [x, y, z]);
 
 #[derive(Debug, Clone)]
 pub struct Binary<T = Op> {
@@ -115,11 +115,10 @@ pub enum Op {
     Sqrt(Arc<Op>),
     Squared(Arc<Op>),
     Pow(Arc<Op>, i32),
-    Mag2(Arc<Op2>),
-    Mag3(Arc<Op3>),
-    Dot2(Arc<Binary<Op2>>),
-    Dot3(Arc<Binary<Op3>>),
-
+    // Mag2(Arc<Op2>),
+    // Mag3(Arc<Op3>),
+    // Dot2(Arc<Binary<Op2>>),
+    // Dot3(Arc<Binary<Op3>>),
     Sin(Arc<Op>),
     Cos(Arc<Op>),
 
@@ -135,14 +134,14 @@ pub enum Op {
 }
 
 pub fn slow_sdf(p: (f32, f32, f32), op: &Op) -> f32 {
-    let op2_vec2 = |op2: &Op2| Vec2::new(slow_sdf(p, &op2.x), slow_sdf(p, &op2.y));
-    let op3_vec3 = |op3: &Op3| {
-        Vec3::new(
-            slow_sdf(p, &op3.x),
-            slow_sdf(p, &op3.y),
-            slow_sdf(p, &op3.z),
-        )
-    };
+    // let op2_vec2 = |op2: &Op2| Vec2::new(slow_sdf(p, &op2.x), slow_sdf(p, &op2.y));
+    // let op3_vec3 = |op3: &Op3| {
+    //     Vec3::new(
+    //         slow_sdf(p, &op3.x),
+    //         slow_sdf(p, &op3.y),
+    //         slow_sdf(p, &op3.z),
+    //     )
+    // };
 
     match op {
         Op::Const(x) => *x,
@@ -158,11 +157,10 @@ pub fn slow_sdf(p: (f32, f32, f32), op: &Op) -> f32 {
         Op::Sqrt(x) => slow_sdf(p, x).sqrt(),
         Op::Squared(x) => slow_sdf(p, x).powi(2),
         Op::Pow(x, exp) => slow_sdf(p, x).powi(*exp),
-        Op::Mag2(b) => op2_vec2(&b).mag(),
-        Op::Mag3(b) => op3_vec3(&b).mag(),
-        Op::Dot2(b) => op2_vec2(&b.lhs).dot(op2_vec2(&b.rhs)),
-        Op::Dot3(b) => op3_vec3(&b.lhs).dot(op3_vec3(&b.rhs)),
-
+        // Op::Mag2(b) => op2_vec2(&b).mag(),
+        // Op::Mag3(b) => op3_vec3(&b).mag(),
+        // Op::Dot2(b) => op2_vec2(&b.lhs).dot(op2_vec2(&b.rhs)),
+        // Op::Dot3(b) => op3_vec3(&b.lhs).dot(op3_vec3(&b.rhs)),
         Op::Sin(op) => slow_sdf(p, &op).sin(),
         Op::Cos(op) => slow_sdf(p, &op).cos(),
 
@@ -222,58 +220,58 @@ impl Op {
         }
     }
 }
-impl Op2 {
-    pub const XY: Self = Op2 { x: Op::X, y: Op::Y };
+// impl Op2 {
+//     pub const XY: Self = Op2 { x: Op::X, y: Op::Y };
 
-    pub fn mag(self) -> Op {
-        Op::Mag2(Arc::new(self))
-    }
-    pub fn dot(self, rhs: Self) -> Op {
-        Op::Dot2(Arc::new(Binary { lhs: self, rhs }))
-    }
-}
-impl Op3 {
-    pub const XYZ: Self = Op3 {
-        x: Op::X,
-        y: Op::Y,
-        z: Op::Z,
-    };
+//     pub fn mag(self) -> Op {
+//         Op::Mag2(Arc::new(self))
+//     }
+//     pub fn dot(self, rhs: Self) -> Op {
+//         Op::Dot2(Arc::new(Binary { lhs: self, rhs }))
+//     }
+// }
+// impl Op3 {
+//     pub const XYZ: Self = Op3 {
+//         x: Op::X,
+//         y: Op::Y,
+//         z: Op::Z,
+//     };
 
-    pub fn mag(self) -> Op {
-        Op::Mag3(Arc::new(self))
-    }
-    pub fn dot(self, rhs: Self) -> Op {
-        Op::Dot3(Arc::new(Binary { lhs: self, rhs }))
-    }
-}
-impl Op3 {
-    pub fn xy(self) -> Op2 {
-        Op2 {
-            x: self.x,
-            y: self.y,
-        }
-    }
-    pub fn yz(self) -> Op2 {
-        Op2 {
-            x: self.y,
-            y: self.z,
-        }
-    }
-    pub fn xz(self) -> Op2 {
-        Op2 {
-            x: self.x,
-            y: self.z,
-        }
-    }
+//     pub fn mag(self) -> Op {
+//         Op::Mag3(Arc::new(self))
+//     }
+//     pub fn dot(self, rhs: Self) -> Op {
+//         Op::Dot3(Arc::new(Binary { lhs: self, rhs }))
+//     }
+// }
+// impl Op3 {
+//     pub fn xy(self) -> Op2 {
+//         Op2 {
+//             x: self.x,
+//             y: self.y,
+//         }
+//     }
+//     pub fn yz(self) -> Op2 {
+//         Op2 {
+//             x: self.y,
+//             y: self.z,
+//         }
+//     }
+//     pub fn xz(self) -> Op2 {
+//         Op2 {
+//             x: self.x,
+//             y: self.z,
+//         }
+//     }
 
-    pub fn zxy(self) -> Op3 {
-        Op3 {
-            x: self.z,
-            y: self.x,
-            z: self.y,
-        }
-    }
-}
+//     pub fn zxy(self) -> Op3 {
+//         Op3 {
+//             x: self.z,
+//             y: self.x,
+//             z: self.y,
+//         }
+//     }
+// }
 
 impl Add<Self> for Op {
     type Output = Self;

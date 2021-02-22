@@ -1,25 +1,18 @@
 use std::{cell::RefCell, fmt, rc::Rc};
 
-use crate::op::{Op, Op3};
+use ultraviolet::Vec3;
 
-pub trait Shape: fmt::Debug {
-    fn generate_ops(&self) -> Op;
-}
+use self::{eval::Evaluate, eval_cpu::CpuEval};
 
-#[derive(Debug)]
-pub struct Sphere {
-    radius: Op,
-}
-
-impl Shape for Sphere {
-    fn generate_ops(&self) -> Op {
-        Op3::XYZ.mag() - self.radius.clone()
-    }
-}
+pub mod eval;
+pub mod eval_cpu;
+pub mod fills;
+pub mod operations;
+pub mod shapes;
 
 // TODO: get rid of this
 #[derive(Debug)]
-pub enum TempShape {
+pub enum Shape {
     Sphere {
         radius: ConstantOrExpr,
     },
@@ -31,11 +24,28 @@ pub enum TempShape {
     // ...
 }
 
-impl fmt::Display for TempShape {
+impl Evaluate for Shape {
+    fn eval<E: eval::Eval>(&self, p: E::V3) -> E::V {
+        use eval::{Value, Value3};
+        match self {
+            Shape::Sphere { radius } => shapes::sphere::<E>(p, E::V::new(radius.get())),
+            Shape::Box {
+                side_x,
+                side_y,
+                side_z,
+            } => shapes::rectangular_prism::<E>(
+                p,
+                E::V3::new(side_x.get(), side_y.get(), side_z.get()),
+            ),
+        }
+    }
+}
+
+impl fmt::Display for Shape {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TempShape::Sphere { radius } => write!(f, "sphere, r = {}", radius),
-            TempShape::Box {
+            Shape::Sphere { radius } => write!(f, "sphere, r = {}", radius),
+            Shape::Box {
                 side_x,
                 side_y,
                 side_z,
@@ -46,20 +56,39 @@ impl fmt::Display for TempShape {
 
 #[derive(Debug)]
 pub enum Fill {
-    Solid,
     Gyroid {
+        scale: ConstantOrExpr,
+        thickness: ConstantOrExpr,
+    },
+    SchwarzP {
         scale: ConstantOrExpr,
         thickness: ConstantOrExpr,
     },
     // ...
 }
 
+impl Evaluate for Fill {
+    fn eval<E: eval::Eval>(&self, p: E::V3) -> E::V {
+        use eval::Value;
+        match self {
+            Fill::Gyroid { scale, thickness } => {
+                fills::gyroid::<E>(p, E::V::new(scale.get()), E::V::new(thickness.get()))
+            }
+            Fill::SchwarzP { scale, thickness } => {
+                fills::schwarz_p::<E>(p, E::V::new(scale.get()), E::V::new(thickness.get()))
+            }
+        }
+    }
+}
+
 impl fmt::Display for Fill {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Fill::Solid => write!(f, "solid"),
             Fill::Gyroid { scale, thickness } => {
                 write!(f, "gyroid(s = {}, t = {})", scale, thickness)
+            }
+            Fill::SchwarzP { scale, thickness } => {
+                write!(f, "schwarz primitive(s = {}, t = {})", scale, thickness)
             }
         }
     }
@@ -74,6 +103,15 @@ pub enum ConstantOrExpr {
     Expr(),
 }
 
+impl ConstantOrExpr {
+    pub fn get(&self) -> f32 {
+        match *self {
+            ConstantOrExpr::Constant(x) => x,
+            ConstantOrExpr::Expr() => panic!(),
+        }
+    }
+}
+
 impl fmt::Display for ConstantOrExpr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -85,7 +123,7 @@ impl fmt::Display for ConstantOrExpr {
 
 #[derive(Debug)]
 pub enum CsgNode {
-    Shape(TempShape, Fill),
+    Shape(Shape, Option<Fill>),
     Union {
         lhs: Rc<RefCell<CsgNode>>,
         rhs: Rc<RefCell<CsgNode>>,
@@ -138,34 +176,77 @@ impl CsgTree {
             root: Some(CsgNode::Union {
                 lhs: Rc::new(RefCell::new(CsgNode::SmoothUnion {
                     lhs: Rc::new(RefCell::new(CsgNode::Shape(
-                        TempShape::Sphere {
+                        Shape::Sphere {
                             radius: ConstantOrExpr::Constant(1.0),
                         },
-                        Fill::Solid,
+                        None,
                     ))),
                     rhs: Rc::new(RefCell::new(CsgNode::Shape(
-                        TempShape::Box {
+                        Shape::Box {
                             side_x: ConstantOrExpr::Constant(1.0),
                             side_y: ConstantOrExpr::Constant(1.0),
                             side_z: ConstantOrExpr::Constant(1.0),
                         },
-                        Fill::Gyroid {
+                        Some(Fill::Gyroid {
                             scale: ConstantOrExpr::Constant(10.0),
                             thickness: ConstantOrExpr::Constant(0.02),
-                        },
+                        }),
                     ))),
                     k: ConstantOrExpr::Constant(0.4),
                 })),
                 rhs: Rc::new(RefCell::new(CsgNode::Shape(
-                    TempShape::Box {
+                    Shape::Box {
                         side_x: ConstantOrExpr::Constant(1.0),
                         side_y: ConstantOrExpr::Constant(1.0),
                         side_z: ConstantOrExpr::Constant(1.0),
                     },
-                    Fill::Solid,
+                    None,
                 ))),
             }),
         }
+    }
+
+    pub fn eval_point_on_cpu(&self, p: Vec3) -> f32 {
+        use eval::{Value, Value3};
+        use eval_cpu::CpuValue3;
+
+        fn recurse(node: &CsgNode, p: CpuValue3) -> f32 {
+            match node {
+                CsgNode::Shape(shape, fill) => {
+                    if let Some(fill) = fill {
+                        shape.eval::<CpuEval>(p).max(fill.eval::<CpuEval>(p))
+                    } else {
+                        shape.eval::<CpuEval>(p)
+                    }
+                }
+                CsgNode::Union { lhs, rhs } => operations::union::<CpuEval>(
+                    recurse(&lhs.borrow(), p),
+                    recurse(&rhs.borrow(), p),
+                ),
+                CsgNode::SmoothUnion { lhs, rhs, k } => operations::smooth_union::<CpuEval>(
+                    recurse(&lhs.borrow(), p),
+                    recurse(&rhs.borrow(), p),
+                    k.get(),
+                ),
+                CsgNode::Intersection { lhs, rhs } => operations::intersection::<CpuEval>(
+                    recurse(&lhs.borrow(), p),
+                    recurse(&rhs.borrow(), p),
+                ),
+                CsgNode::SmoothIntersection { .. } => todo!(),
+                CsgNode::Subtraction { lhs, rhs } => operations::subtraction::<CpuEval>(
+                    recurse(&lhs.borrow(), p),
+                    recurse(&rhs.borrow(), p),
+                ),
+                CsgNode::SmoothSubtraction { .. } => todo!(),
+                CsgNode::Translate { x, y, z, node } => recurse(
+                    &node.borrow(),
+                    p + CpuValue3::new(x.get(), y.get(), z.get()),
+                ),
+                CsgNode::Rotate { .. } => todo!(),
+            }
+        }
+
+        recurse(self.root.as_ref().unwrap(), CpuValue3::new(p.x, p.y, p.z))
     }
 }
 
@@ -196,7 +277,13 @@ impl fmt::Display for CsgTree {
             }
 
             match node {
-                CsgNode::Shape(shape, fill) => writeln!(f, "{}, fill = {}", shape, fill)?,
+                CsgNode::Shape(shape, fill) => {
+                    if let Some(fill) = fill {
+                        writeln!(f, "{}, fill = {}", shape, fill)?
+                    } else {
+                        writeln!(f, "{}", shape)?
+                    }
+                }
                 CsgNode::Union { lhs, rhs } => {
                     writeln!(f, "union")?;
                     recurse(f, &lhs.borrow(), indent.clone(), false, false)?;
