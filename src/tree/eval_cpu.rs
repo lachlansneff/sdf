@@ -3,7 +3,7 @@ use std::{
     borrow::Borrow,
     ops::{Add, Div, Mul, Neg, Sub},
 };
-use ultraviolet::{Vec2x8, Vec3x8, f32x8};
+use ultraviolet::{f32x8, Vec2x8, Vec3x8};
 
 pub enum CpuEval {}
 

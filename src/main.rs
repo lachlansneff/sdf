@@ -63,7 +63,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) -> ! {
     print!("{}", csg);
     println!(
         "eval: {:?}",
-        csg.eval_points_on_cpu((-4..4).map(|i| Vec3::new(1.0 * i as f32, 0.0, 10.0))).collect::<Vec<_>>()
+        csg.eval_points_on_cpu((-4..4).map(|i| Vec3::new(1.0 * i as f32, 0.0, 10.0)))
+            .collect::<Vec<_>>()
     );
 
     event_loop.run(move |event, _, control_flow| {

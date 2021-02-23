@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt, mem, ops::Range, rc::Rc};
+use std::{fmt, mem, ops::Range, rc::Rc};
 
 use ultraviolet::Vec3;
 
@@ -125,43 +125,43 @@ impl fmt::Display for ConstantOrExpr {
 pub enum CsgNode {
     Shape(Shape, Option<Fill>),
     Union {
-        lhs: Rc<RefCell<CsgNode>>,
-        rhs: Rc<RefCell<CsgNode>>,
+        lhs: Rc<CsgNode>,
+        rhs: Rc<CsgNode>,
     },
     SmoothUnion {
-        lhs: Rc<RefCell<CsgNode>>,
-        rhs: Rc<RefCell<CsgNode>>,
+        lhs: Rc<CsgNode>,
+        rhs: Rc<CsgNode>,
         k: ConstantOrExpr,
     },
     Intersection {
-        lhs: Rc<RefCell<CsgNode>>,
-        rhs: Rc<RefCell<CsgNode>>,
+        lhs: Rc<CsgNode>,
+        rhs: Rc<CsgNode>,
     },
     SmoothIntersection {
-        lhs: Rc<RefCell<CsgNode>>,
-        rhs: Rc<RefCell<CsgNode>>,
+        lhs: Rc<CsgNode>,
+        rhs: Rc<CsgNode>,
         k: ConstantOrExpr,
     },
     Subtraction {
-        lhs: Rc<RefCell<CsgNode>>,
-        rhs: Rc<RefCell<CsgNode>>,
+        lhs: Rc<CsgNode>,
+        rhs: Rc<CsgNode>,
     },
     SmoothSubtraction {
-        lhs: Rc<RefCell<CsgNode>>,
-        rhs: Rc<RefCell<CsgNode>>,
+        lhs: Rc<CsgNode>,
+        rhs: Rc<CsgNode>,
         k: ConstantOrExpr,
     },
     Translate {
         x: ConstantOrExpr,
         y: ConstantOrExpr,
         z: ConstantOrExpr,
-        node: Rc<RefCell<CsgNode>>,
+        node: Rc<CsgNode>,
     },
     Rotate {
         roll: ConstantOrExpr,
         pitch: ConstantOrExpr,
         yaw: ConstantOrExpr,
-        node: Rc<RefCell<CsgNode>>,
+        node: Rc<CsgNode>,
     },
 }
 
@@ -174,14 +174,14 @@ impl CsgTree {
     pub fn new_example() -> Self {
         Self {
             root: Some(CsgNode::Union {
-                lhs: Rc::new(RefCell::new(CsgNode::SmoothUnion {
-                    lhs: Rc::new(RefCell::new(CsgNode::Shape(
+                lhs: Rc::new(CsgNode::SmoothUnion {
+                    lhs: Rc::new(CsgNode::Shape(
                         Shape::Sphere {
                             radius: ConstantOrExpr::Constant(1.0),
                         },
                         None,
-                    ))),
-                    rhs: Rc::new(RefCell::new(CsgNode::Shape(
+                    )),
+                    rhs: Rc::new(CsgNode::Shape(
                         Shape::Box {
                             side_x: ConstantOrExpr::Constant(1.0),
                             side_y: ConstantOrExpr::Constant(1.0),
@@ -191,44 +191,47 @@ impl CsgTree {
                             scale: ConstantOrExpr::Constant(10.0),
                             thickness: ConstantOrExpr::Constant(0.02),
                         }),
-                    ))),
+                    )),
                     k: ConstantOrExpr::Constant(0.4),
-                })),
-                rhs: Rc::new(RefCell::new(CsgNode::Shape(
+                }),
+                rhs: Rc::new(CsgNode::Shape(
                     Shape::Box {
                         side_x: ConstantOrExpr::Constant(1.0),
                         side_y: ConstantOrExpr::Constant(1.0),
                         side_z: ConstantOrExpr::Constant(1.0),
                     },
                     None,
-                ))),
+                )),
             }),
         }
     }
 
     /// Automatically evalutes using simd.
-    pub fn eval_points_on_cpu<'a>(&'a self, points: impl IntoIterator<Item=Vec3> + 'a) -> impl Iterator<Item=f32> + 'a {
+    pub fn eval_points_on_cpu<'a>(
+        &'a self,
+        points: impl IntoIterator<Item = Vec3> + 'a,
+    ) -> impl Iterator<Item = f32> + 'a {
         use eval::{Value, Value3};
         use eval_cpu::{CpuValue, CpuValue3};
 
         pub struct Chunk8Iter<I>(I);
 
-        impl<I: Iterator<Item=Vec3>> Iterator for Chunk8Iter<I> {
+        impl<I: Iterator<Item = Vec3>> Iterator for Chunk8Iter<I> {
             type Item = [Vec3; 8];
             fn next(&mut self) -> Option<Self::Item> {
                 let mut array: [Vec3; 8] = Default::default();
                 let iter = (&mut self.0).take(8);
 
-                let mut count = 0;
+                let mut not_empty = false;
                 for (a, b) in array.iter_mut().zip(iter) {
-                    count += 1;
+                    not_empty = true;
                     *a = b;
                 }
 
-                if count == 0 {
-                    None
-                } else {
+                if not_empty {
                     Some(array)
+                } else {
+                    None
                 }
             }
         }
@@ -247,9 +250,9 @@ impl CsgTree {
         impl Iterator for Arrayf32x8Iter {
             type Item = f32;
             fn next(&mut self) -> Option<f32> {
-                self.alive.next().map(|idx| {
-                    unsafe { *self.data.get_unchecked(idx) }
-                })
+                self.alive
+                    .next()
+                    .map(|idx| unsafe { *self.data.get_unchecked(idx) })
             }
         }
 
@@ -265,41 +268,37 @@ impl CsgTree {
                         shape.eval::<CpuEval>(p)
                     }
                 }
-                CsgNode::Union { lhs, rhs } => operations::union::<CpuEval>(
-                    recurse(&lhs.borrow(), p),
-                    recurse(&rhs.borrow(), p),
-                ),
+                CsgNode::Union { lhs, rhs } => {
+                    operations::union::<CpuEval>(recurse(&lhs, p), recurse(&rhs, p))
+                }
                 CsgNode::SmoothUnion { lhs, rhs, k } => operations::smooth_union::<CpuEval>(
-                    recurse(&lhs.borrow(), p),
-                    recurse(&rhs.borrow(), p),
+                    recurse(&lhs, p),
+                    recurse(&rhs, p),
                     CpuValue::new(k.get()),
                 ),
-                CsgNode::Intersection { lhs, rhs } => operations::intersection::<CpuEval>(
-                    recurse(&lhs.borrow(), p),
-                    recurse(&rhs.borrow(), p),
-                ),
+                CsgNode::Intersection { lhs, rhs } => {
+                    operations::intersection::<CpuEval>(recurse(&lhs, p), recurse(&rhs, p))
+                }
                 CsgNode::SmoothIntersection { lhs, rhs, k } => {
                     operations::smooth_intersection::<CpuEval>(
-                        recurse(&lhs.borrow(), p),
-                        recurse(&rhs.borrow(), p),
+                        recurse(&lhs, p),
+                        recurse(&rhs, p),
                         CpuValue::new(k.get()),
                     )
                 }
-                CsgNode::Subtraction { lhs, rhs } => operations::subtraction::<CpuEval>(
-                    recurse(&lhs.borrow(), p),
-                    recurse(&rhs.borrow(), p),
-                ),
+                CsgNode::Subtraction { lhs, rhs } => {
+                    operations::subtraction::<CpuEval>(recurse(&lhs, p), recurse(&rhs, p))
+                }
                 CsgNode::SmoothSubtraction { lhs, rhs, k } => {
                     operations::smooth_subtraction::<CpuEval>(
-                        recurse(&lhs.borrow(), p),
-                        recurse(&rhs.borrow(), p),
+                        recurse(&lhs, p),
+                        recurse(&rhs, p),
                         CpuValue::new(k.get()),
                     )
                 }
-                CsgNode::Translate { x, y, z, node } => recurse(
-                    &node.borrow(),
-                    p + CpuValue3::new(x.get(), y.get(), z.get()),
-                ),
+                CsgNode::Translate { x, y, z, node } => {
+                    recurse(&node, p + CpuValue3::new(x.get(), y.get(), z.get()))
+                }
                 CsgNode::Rotate { .. } => todo!(),
             }
         }
@@ -352,37 +351,37 @@ impl fmt::Display for CsgTree {
                 }
                 CsgNode::Union { lhs, rhs } => {
                     writeln!(f, "union")?;
-                    recurse(f, &lhs.borrow(), indent.clone(), false, false)?;
-                    recurse(f, &rhs.borrow(), indent, true, false)?;
+                    recurse(f, &lhs, indent.clone(), false, false)?;
+                    recurse(f, &rhs, indent, true, false)?;
                 }
                 CsgNode::SmoothUnion { lhs, rhs, k } => {
                     writeln!(f, "smooth union, k = {}", k)?;
-                    recurse(f, &lhs.borrow(), indent.clone(), false, false)?;
-                    recurse(f, &rhs.borrow(), indent, true, false)?;
+                    recurse(f, &lhs, indent.clone(), false, false)?;
+                    recurse(f, &rhs, indent, true, false)?;
                 }
                 CsgNode::Intersection { lhs, rhs } => {
                     writeln!(f, "intersection")?;
-                    recurse(f, &lhs.borrow(), indent.clone(), false, false)?;
-                    recurse(f, &rhs.borrow(), indent, true, false)?;
+                    recurse(f, &lhs, indent.clone(), false, false)?;
+                    recurse(f, &rhs, indent, true, false)?;
                 }
                 CsgNode::SmoothIntersection { lhs, rhs, k } => {
                     writeln!(f, "smooth intersection, k = {}", k)?;
-                    recurse(f, &lhs.borrow(), indent.clone(), false, false)?;
-                    recurse(f, &rhs.borrow(), indent, true, false)?;
+                    recurse(f, &lhs, indent.clone(), false, false)?;
+                    recurse(f, &rhs, indent, true, false)?;
                 }
                 CsgNode::Subtraction { lhs, rhs } => {
                     writeln!(f, "subtraction")?;
-                    recurse(f, &lhs.borrow(), indent.clone(), false, false)?;
-                    recurse(f, &rhs.borrow(), indent, true, false)?;
+                    recurse(f, &lhs, indent.clone(), false, false)?;
+                    recurse(f, &rhs, indent, true, false)?;
                 }
                 CsgNode::SmoothSubtraction { lhs, rhs, k } => {
                     writeln!(f, "smooth subtraction, k = {}", k)?;
-                    recurse(f, &lhs.borrow(), indent.clone(), false, false)?;
-                    recurse(f, &rhs.borrow(), indent, true, false)?;
+                    recurse(f, &lhs, indent.clone(), false, false)?;
+                    recurse(f, &rhs, indent, true, false)?;
                 }
                 CsgNode::Translate { x, y, z, node } => {
                     writeln!(f, "translate by ⟨{}, {}, {}⟩", x, y, z)?;
-                    recurse(f, &node.borrow(), indent, true, false)?;
+                    recurse(f, &node, indent, true, false)?;
                 }
                 CsgNode::Rotate {
                     roll,
@@ -391,7 +390,7 @@ impl fmt::Display for CsgTree {
                     node,
                 } => {
                     writeln!(f, "rotate by ⟨{}, {}, {}⟩", roll, pitch, yaw)?;
-                    recurse(f, &node.borrow(), indent, true, false)?;
+                    recurse(f, &node, indent, true, false)?;
                 }
             };
             Ok(())
