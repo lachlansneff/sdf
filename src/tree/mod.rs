@@ -1,6 +1,6 @@
 use std::{fmt, mem, ops::Range, rc::Rc};
 
-use ultraviolet::Vec3;
+use ultraviolet::{f32x8, Vec3};
 
 use self::{eval::Evaluate, eval_cpu::CpuEval};
 
@@ -217,19 +217,19 @@ impl CsgTree {
         pub struct Chunk8Iter<I>(I);
 
         impl<I: Iterator<Item = Vec3>> Iterator for Chunk8Iter<I> {
-            type Item = [Vec3; 8];
+            type Item = ([Vec3; 8], usize);
             fn next(&mut self) -> Option<Self::Item> {
                 let mut array: [Vec3; 8] = Default::default();
                 let iter = (&mut self.0).take(8);
 
-                let mut not_empty = false;
+                let mut count = 0;
                 for (a, b) in array.iter_mut().zip(iter) {
-                    not_empty = true;
+                    count += 1;
                     *a = b;
                 }
 
-                if not_empty {
-                    Some(array)
+                if count != 0 {
+                    Some((array, count))
                 } else {
                     None
                 }
@@ -242,8 +242,11 @@ impl CsgTree {
         }
 
         impl Arrayf32x8Iter {
-            fn new(data: [f32; 8]) -> Self {
-                Self { data, alive: 0..8 }
+            fn new(v: f32x8, count: usize) -> Self {
+                Self {
+                    data: unsafe { mem::transmute(v) },
+                    alive: 0..count,
+                }
             }
         }
 
@@ -306,10 +309,8 @@ impl CsgTree {
         let root = self.root.as_ref().unwrap();
 
         Chunk8Iter(points.into_iter())
-            .map(move |array| {
-                let distx8 = recurse(root, CpuValue3(array.into())).0;
-
-                Arrayf32x8Iter::new(unsafe { mem::transmute::<_, [f32; 8]>(distx8) })
+            .map(move |(array, count)| {
+                Arrayf32x8Iter::new(recurse(root, CpuValue3(array.into())).0, count)
             })
             .flatten()
     }
