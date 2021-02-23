@@ -236,12 +236,12 @@ impl CsgTree {
             }
         }
 
-        pub struct Arrayf32x8Iter {
+        pub struct F32x8Iter {
             data: [f32; 8],
             alive: Range<usize>,
         }
 
-        impl Arrayf32x8Iter {
+        impl F32x8Iter {
             fn new(v: f32x8, count: usize) -> Self {
                 Self {
                     data: unsafe { mem::transmute(v) },
@@ -250,7 +250,7 @@ impl CsgTree {
             }
         }
 
-        impl Iterator for Arrayf32x8Iter {
+        impl Iterator for F32x8Iter {
             type Item = f32;
             fn next(&mut self) -> Option<f32> {
                 self.alive
@@ -310,7 +310,7 @@ impl CsgTree {
 
         Chunk8Iter(points.into_iter())
             .map(move |(array, count)| {
-                Arrayf32x8Iter::new(recurse(root, CpuValue3(array.into())).0, count)
+                F32x8Iter::new(recurse(root, CpuValue3(array.into())).0, count)
             })
             .flatten()
     }
