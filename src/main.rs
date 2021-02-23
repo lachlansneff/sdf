@@ -62,8 +62,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) -> ! {
     let csg = CsgTree::new_example();
     print!("{}", csg);
     println!(
-        "eval @ (0.0, 1.0, 10.0): {}",
-        csg.eval_point_on_cpu(Vec3::new(0.0, 1.0, 10.0))
+        "eval: {:?}",
+        csg.eval_points_on_cpu((-4..4).map(|i| Vec3::new(1.0 * i as f32, 0.0, 10.0))).collect::<Vec<_>>()
     );
 
     event_loop.run(move |event, _, control_flow| {

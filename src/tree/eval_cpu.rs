@@ -3,70 +3,87 @@ use std::{
     borrow::Borrow,
     ops::{Add, Div, Mul, Neg, Sub},
 };
-use ultraviolet::{Vec2, Vec3};
+use ultraviolet::{Vec2x8, Vec3x8, f32x8};
 
 pub enum CpuEval {}
 
 impl Eval for CpuEval {
-    type V = f32;
+    type V = CpuValue;
     type V2 = CpuValue2;
     type V3 = CpuValue3;
 }
 
 #[derive(Clone, Copy)]
-pub struct CpuValue2(pub Vec2);
+#[repr(transparent)]
+pub struct CpuValue(pub f32x8);
 #[derive(Clone, Copy)]
-pub struct CpuValue3(pub Vec3);
+#[repr(transparent)]
+pub struct CpuValue2(pub Vec2x8);
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct CpuValue3(pub Vec3x8);
 
-impl Value<CpuEval> for f32 {
+impl Value<CpuEval> for CpuValue {
     fn new(v: f32) -> Self {
-        v
+        Self(f32x8::splat(v))
     }
 
     fn max(&self, other: impl Borrow<Self>) -> Self {
-        f32::max(*self, *other.borrow())
+        Self(f32x8::max(self.0, other.borrow().0))
     }
 
     fn min(&self, other: impl Borrow<Self>) -> Self {
-        f32::min(*self, *other.borrow())
+        Self(f32x8::min(self.0, other.borrow().0))
     }
 
     fn clamp(&self, min: impl Borrow<Self>, max: impl Borrow<Self>) -> Self {
-        f32::clamp(*self, *min.borrow(), *max.borrow())
+        let min = min.borrow().0;
+        let max = max.borrow().0;
+        Self(self.0.max(min).min(max))
     }
 
     fn mix(&self, start: impl Borrow<Self>, end: impl Borrow<Self>) -> Self {
         // x×(1−a)+y×a
-        let start = *start.borrow();
-        let end = *end.borrow();
+        let start = start.borrow().0;
+        let end = end.borrow().0;
 
-        start * (1.0 - *self) + end * *self
+        CpuValue(start * (-self.0 + 1.0) + end * self.0)
     }
 
     fn sin(&self) -> Self {
-        f32::sin(*self)
+        Self(self.0.sin())
     }
 
     fn cos(&self) -> Self {
-        f32::cos(*self)
+        Self(self.0.cos())
     }
 
     fn abs(&self) -> Self {
-        f32::abs(*self)
+        Self(self.0.abs())
+    }
+}
+impl From<f32> for CpuValue {
+    fn from(v: f32) -> Self {
+        Self(f32x8::splat(v))
+    }
+}
+impl From<f32x8> for CpuValue {
+    fn from(v: f32x8) -> Self {
+        Self(v)
     }
 }
 
 impl Value2<CpuEval> for CpuValue2 {
-    fn splat(v: impl Into<f32>) -> Self {
-        Self(Vec2::broadcast(v.into()))
+    fn splat(v: impl Into<CpuValue>) -> Self {
+        Self(Vec2x8::broadcast(v.into().0))
     }
 
-    fn new(x: impl Into<f32>, y: impl Into<f32>) -> Self {
-        Self(Vec2::new(x.into(), y.into()))
+    fn new(x: impl Into<CpuValue>, y: impl Into<CpuValue>) -> Self {
+        Self(Vec2x8::new(x.into().0, y.into().0))
     }
 
-    fn mag(&self) -> f32 {
-        self.0.mag()
+    fn mag(&self) -> CpuValue {
+        CpuValue(self.0.mag())
     }
 
     fn abs(&self) -> Self {
@@ -81,9 +98,9 @@ impl Value2<CpuEval> for CpuValue2 {
         Self(self.0.map(|v| v.cos()))
     }
 
-    fn dot(&self, other: impl Borrow<Self>) -> f32 {
-        let other = *other.borrow();
-        self.0.dot(other.0)
+    fn dot(&self, other: impl Borrow<Self>) -> CpuValue {
+        let other = other.borrow().0;
+        CpuValue(self.0.dot(other))
     }
 
     fn max(&self, other: impl Borrow<Self>) -> Self {
@@ -94,26 +111,26 @@ impl Value2<CpuEval> for CpuValue2 {
         Self(self.0.min_by_component(other.borrow().0))
     }
 
-    fn x(&self) -> f32 {
-        self.0.x
+    fn x(&self) -> CpuValue {
+        CpuValue(self.0.x)
     }
 
-    fn y(&self) -> f32 {
-        self.0.y
+    fn y(&self) -> CpuValue {
+        CpuValue(self.0.y)
     }
 }
 
 impl Value3<CpuEval> for CpuValue3 {
     fn splat(v: f32) -> Self {
-        Self(Vec3::broadcast(v.into()))
+        Self(Vec3x8::broadcast(v.into()))
     }
 
-    fn new(x: impl Into<f32>, y: impl Into<f32>, z: impl Into<f32>) -> Self {
-        Self(Vec3::new(x.into(), y.into(), z.into()))
+    fn new(x: impl Into<CpuValue>, y: impl Into<CpuValue>, z: impl Into<CpuValue>) -> Self {
+        Self(Vec3x8::new(x.into().0, y.into().0, z.into().0))
     }
 
-    fn mag(&self) -> f32 {
-        self.0.mag()
+    fn mag(&self) -> CpuValue {
+        CpuValue(self.0.mag())
     }
 
     fn abs(&self) -> Self {
@@ -128,9 +145,9 @@ impl Value3<CpuEval> for CpuValue3 {
         Self(self.0.map(|v| v.cos()))
     }
 
-    fn dot(&self, other: impl Borrow<Self>) -> f32 {
+    fn dot(&self, other: impl Borrow<Self>) -> CpuValue {
         let other = *other.borrow();
-        self.0.dot(other.0)
+        CpuValue(self.0.dot(other.0))
     }
 
     fn max(&self, other: impl Borrow<Self>) -> Self {
@@ -141,29 +158,54 @@ impl Value3<CpuEval> for CpuValue3 {
         Self(self.0.min_by_component(other.borrow().0))
     }
 
-    fn x(&self) -> f32 {
-        self.0.x
+    fn x(&self) -> CpuValue {
+        CpuValue(self.0.x)
     }
 
-    fn y(&self) -> f32 {
-        self.0.y
+    fn y(&self) -> CpuValue {
+        CpuValue(self.0.y)
     }
 
-    fn z(&self) -> f32 {
-        self.0.z
+    fn z(&self) -> CpuValue {
+        CpuValue(self.0.z)
     }
 
     fn xz(&self) -> CpuValue2 {
-        CpuValue2::new(self.0.x, self.0.z)
+        CpuValue2(Vec2x8::new(self.0.x, self.0.z))
     }
 
     fn zxy(&self) -> CpuValue3 {
-        CpuValue3::new(self.0.z, self.0.x, self.0.y)
+        CpuValue3(Vec3x8::new(self.0.z, self.0.x, self.0.y))
     }
 }
 
 macro_rules! impl_operators {
+    (value $value:ty) => {
+        impl_operators!($value => Add::add[Self]);
+        impl_operators!($value => Add::add[f32]);
+
+        impl_operators!($value => Sub::sub[Self]);
+        impl_operators!($value => Sub::sub[f32]);
+
+        impl_operators!($value => Mul::mul[Self]);
+        impl_operators!($value => Mul::mul[f32]);
+
+        impl_operators!($value => Div::div[Self]);
+        impl_operators!($value => Div::div[f32]);
+
+        impl Neg for $value {
+            type Output = Self;
+            fn neg(self) -> Self {
+                Self(-self.0)
+            }
+        }
+    };
     ($vec:ty) => {
+        impl_operators!($vec => (map field) Add::add[CpuValue]);
+        impl_operators!($vec => (map field) Sub::sub[CpuValue]);
+        impl_operators!($vec => (map field) Mul::mul[CpuValue]);
+        impl_operators!($vec => (map field) Div::div[CpuValue]);
+
         impl_operators!($vec => Add::add[Self]);
         impl_operators!($vec => (map) Add::add[f32]);
 
@@ -191,6 +233,22 @@ macro_rules! impl_operators {
             }
         }
     };
+    ($vec:ty => $trait:ident::$traitfn:ident[$t:ty]) => {
+        impl $trait<$t> for $vec {
+            type Output = Self;
+            fn $traitfn(self, rhs: $t) -> Self {
+                Self($trait::$traitfn(self.0, rhs))
+            }
+        }
+    };
+    ($vec:ty => (map field) $trait:ident::$traitfn:ident[$t:ty]) => {
+        impl $trait<$t> for $vec {
+            type Output = Self;
+            fn $traitfn(self, rhs: $t) -> Self {
+                Self(self.0.map(|v| $trait::$traitfn(v, rhs.0)))
+            }
+        }
+    };
     ($vec:ty => (map) $trait:ident::$traitfn:ident[$t:ty]) => {
         impl $trait<$t> for $vec {
             type Output = Self;
@@ -201,5 +259,6 @@ macro_rules! impl_operators {
     };
 }
 
+impl_operators!(value CpuValue);
 impl_operators!(CpuValue2);
 impl_operators!(CpuValue3);

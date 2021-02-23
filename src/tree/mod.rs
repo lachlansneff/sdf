@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt, rc::Rc};
+use std::{cell::RefCell, fmt, mem, ops::Range, rc::Rc};
 
 use ultraviolet::Vec3;
 
@@ -206,15 +206,61 @@ impl CsgTree {
         }
     }
 
-    pub fn eval_point_on_cpu(&self, p: Vec3) -> f32 {
+    /// Automatically evalutes using simd.
+    pub fn eval_points_on_cpu<'a>(&'a self, points: impl IntoIterator<Item=Vec3> + 'a) -> impl Iterator<Item=f32> + 'a {
         use eval::{Value, Value3};
-        use eval_cpu::CpuValue3;
+        use eval_cpu::{CpuValue, CpuValue3};
 
-        fn recurse(node: &CsgNode, p: CpuValue3) -> f32 {
+        pub struct Chunk8Iter<I>(I);
+
+        impl<I: Iterator<Item=Vec3>> Iterator for Chunk8Iter<I> {
+            type Item = [Vec3; 8];
+            fn next(&mut self) -> Option<Self::Item> {
+                let mut array: [Vec3; 8] = Default::default();
+                let iter = (&mut self.0).take(8);
+
+                let mut count = 0;
+                for (a, b) in array.iter_mut().zip(iter) {
+                    count += 1;
+                    *a = b;
+                }
+
+                if count == 0 {
+                    None
+                } else {
+                    Some(array)
+                }
+            }
+        }
+
+        pub struct Arrayf32x8Iter {
+            data: [f32; 8],
+            alive: Range<usize>,
+        }
+
+        impl Arrayf32x8Iter {
+            fn new(data: [f32; 8]) -> Self {
+                Self { data, alive: 0..8 }
+            }
+        }
+
+        impl Iterator for Arrayf32x8Iter {
+            type Item = f32;
+            fn next(&mut self) -> Option<f32> {
+                self.alive.next().map(|idx| {
+                    unsafe { *self.data.get_unchecked(idx) }
+                })
+            }
+        }
+
+        fn recurse(node: &CsgNode, p: CpuValue3) -> CpuValue {
             match node {
                 CsgNode::Shape(shape, fill) => {
                     if let Some(fill) = fill {
-                        shape.eval::<CpuEval>(p).max(fill.eval::<CpuEval>(p))
+                        operations::intersection::<CpuEval>(
+                            shape.eval::<CpuEval>(p),
+                            fill.eval::<CpuEval>(p),
+                        )
                     } else {
                         shape.eval::<CpuEval>(p)
                     }
@@ -226,18 +272,30 @@ impl CsgTree {
                 CsgNode::SmoothUnion { lhs, rhs, k } => operations::smooth_union::<CpuEval>(
                     recurse(&lhs.borrow(), p),
                     recurse(&rhs.borrow(), p),
-                    k.get(),
+                    CpuValue::new(k.get()),
                 ),
                 CsgNode::Intersection { lhs, rhs } => operations::intersection::<CpuEval>(
                     recurse(&lhs.borrow(), p),
                     recurse(&rhs.borrow(), p),
                 ),
-                CsgNode::SmoothIntersection { .. } => todo!(),
+                CsgNode::SmoothIntersection { lhs, rhs, k } => {
+                    operations::smooth_intersection::<CpuEval>(
+                        recurse(&lhs.borrow(), p),
+                        recurse(&rhs.borrow(), p),
+                        CpuValue::new(k.get()),
+                    )
+                }
                 CsgNode::Subtraction { lhs, rhs } => operations::subtraction::<CpuEval>(
                     recurse(&lhs.borrow(), p),
                     recurse(&rhs.borrow(), p),
                 ),
-                CsgNode::SmoothSubtraction { .. } => todo!(),
+                CsgNode::SmoothSubtraction { lhs, rhs, k } => {
+                    operations::smooth_subtraction::<CpuEval>(
+                        recurse(&lhs.borrow(), p),
+                        recurse(&rhs.borrow(), p),
+                        CpuValue::new(k.get()),
+                    )
+                }
                 CsgNode::Translate { x, y, z, node } => recurse(
                     &node.borrow(),
                     p + CpuValue3::new(x.get(), y.get(), z.get()),
@@ -246,7 +304,15 @@ impl CsgTree {
             }
         }
 
-        recurse(self.root.as_ref().unwrap(), CpuValue3::new(p.x, p.y, p.z))
+        let root = self.root.as_ref().unwrap();
+
+        Chunk8Iter(points.into_iter())
+            .map(move |array| {
+                let distx8 = recurse(root, CpuValue3(array.into())).0;
+
+                Arrayf32x8Iter::new(unsafe { mem::transmute::<_, [f32; 8]>(distx8) })
+            })
+            .flatten()
     }
 }
 
