@@ -1,17 +1,8 @@
-use std::{fmt, mem, ops::Range, rc::Rc};
+use std::{fmt, rc::Rc};
 
-use ultraviolet::{f32x8, Vec3};
+mod cpu;
+mod gpu;
 
-use self::{eval::Evaluate, eval_cpu::CpuEval};
-
-pub mod eval;
-pub mod eval_cpu;
-// pub mod eval_glsl;
-pub mod fills;
-pub mod operations;
-pub mod shapes;
-
-// TODO: get rid of this
 #[derive(Debug)]
 pub enum Shape {
     Sphere {
@@ -23,23 +14,6 @@ pub enum Shape {
         side_z: ConstantOrExpr,
     },
     // ...
-}
-
-impl Evaluate for Shape {
-    fn eval<E: eval::Eval>(&self, p: E::R3) -> E::R1 {
-        use eval::{Real1, Real3};
-        match self {
-            Shape::Sphere { radius } => shapes::sphere::<E>(p, E::R1::new(radius.get())),
-            Shape::Box {
-                side_x,
-                side_y,
-                side_z,
-            } => shapes::rectangular_prism::<E>(
-                p,
-                E::R3::new(side_x.get(), side_y.get(), side_z.get()),
-            ),
-        }
-    }
 }
 
 impl fmt::Display for Shape {
@@ -66,20 +40,6 @@ pub enum Fill {
         thickness: ConstantOrExpr,
     },
     // ...
-}
-
-impl Evaluate for Fill {
-    fn eval<E: eval::Eval>(&self, p: E::R3) -> E::R1 {
-        use eval::Real1;
-        match self {
-            Fill::Gyroid { scale, thickness } => {
-                fills::gyroid::<E>(p, E::R1::new(scale.get()), E::R1::new(thickness.get()))
-            }
-            Fill::SchwarzP { scale, thickness } => {
-                fills::schwarz_p::<E>(p, E::R1::new(scale.get()), E::R1::new(thickness.get()))
-            }
-        }
-    }
 }
 
 impl fmt::Display for Fill {
@@ -207,114 +167,6 @@ impl CsgTree {
         }
     }
 
-    /// Automatically evalutes using simd.
-    pub fn eval_points_on_cpu<'a>(
-        &'a self,
-        points: impl IntoIterator<Item = Vec3> + 'a,
-    ) -> impl Iterator<Item = f32> + 'a {
-        use eval::{Real1, Real3};
-        use eval_cpu::{CpuReal1, CpuReal3};
-
-        pub struct Chunk8Iter<I>(I);
-
-        impl<I: Iterator<Item = Vec3>> Iterator for Chunk8Iter<I> {
-            type Item = ([Vec3; 8], usize);
-            fn next(&mut self) -> Option<Self::Item> {
-                let mut array: [Vec3; 8] = Default::default();
-                let iter = (&mut self.0).take(8);
-
-                let mut count = 0;
-                for (a, b) in array.iter_mut().zip(iter) {
-                    count += 1;
-                    *a = b;
-                }
-
-                if count != 0 {
-                    Some((array, count))
-                } else {
-                    None
-                }
-            }
-        }
-
-        pub struct F32x8Iter {
-            data: [f32; 8],
-            alive: Range<usize>,
-        }
-
-        impl F32x8Iter {
-            fn new(v: f32x8, count: usize) -> Self {
-                Self {
-                    data: unsafe { mem::transmute(v) },
-                    alive: 0..count,
-                }
-            }
-        }
-
-        impl Iterator for F32x8Iter {
-            type Item = f32;
-            fn next(&mut self) -> Option<f32> {
-                self.alive
-                    .next()
-                    .map(|idx| unsafe { *self.data.get_unchecked(idx) })
-            }
-        }
-
-        fn recurse(node: &CsgNode, p: CpuReal3) -> CpuReal1 {
-            match node {
-                CsgNode::Shape(shape, fill) => {
-                    if let Some(fill) = fill {
-                        operations::intersection::<CpuEval>(
-                            shape.eval::<CpuEval>(p),
-                            fill.eval::<CpuEval>(p),
-                        )
-                    } else {
-                        shape.eval::<CpuEval>(p)
-                    }
-                }
-                CsgNode::Union { lhs, rhs } => {
-                    operations::union::<CpuEval>(recurse(&lhs, p), recurse(&rhs, p))
-                }
-                CsgNode::SmoothUnion { lhs, rhs, k } => operations::smooth_union::<CpuEval>(
-                    recurse(&lhs, p),
-                    recurse(&rhs, p),
-                    CpuReal1::new(k.get()),
-                ),
-                CsgNode::Intersection { lhs, rhs } => {
-                    operations::intersection::<CpuEval>(recurse(&lhs, p), recurse(&rhs, p))
-                }
-                CsgNode::SmoothIntersection { lhs, rhs, k } => {
-                    operations::smooth_intersection::<CpuEval>(
-                        recurse(&lhs, p),
-                        recurse(&rhs, p),
-                        CpuReal1::new(k.get()),
-                    )
-                }
-                CsgNode::Subtraction { lhs, rhs } => {
-                    operations::subtraction::<CpuEval>(recurse(&lhs, p), recurse(&rhs, p))
-                }
-                CsgNode::SmoothSubtraction { lhs, rhs, k } => {
-                    operations::smooth_subtraction::<CpuEval>(
-                        recurse(&lhs, p),
-                        recurse(&rhs, p),
-                        CpuReal1::new(k.get()),
-                    )
-                }
-                CsgNode::Translate { x, y, z, node } => {
-                    recurse(&node, p + CpuReal3::new(x.get(), y.get(), z.get()))
-                }
-                CsgNode::Rotate { .. } => todo!(),
-            }
-        }
-
-        let root = self.root.as_ref().unwrap();
-
-        Chunk8Iter(points.into_iter())
-            .map(move |(array, count)| {
-                F32x8Iter::new(recurse(root, CpuReal3(array.into())).0, count)
-            })
-            .flatten()
-    }
 }
 
 impl fmt::Display for CsgTree {

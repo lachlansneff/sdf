@@ -61,11 +61,6 @@ async fn run(event_loop: EventLoop<()>, window: Window) -> ! {
 
     let csg = CsgTree::new_example();
     print!("{}", csg);
-    println!(
-        "eval: {:?}",
-        csg.eval_points_on_cpu((-4..5).map(|i| Vec3::new(1.0 * i as f32, 0.0, 10.0)))
-            .collect::<Vec<_>>()
-    );
 
     event_loop.run(move |event, _, control_flow| {
         // Have the closure take ownership of the resources.

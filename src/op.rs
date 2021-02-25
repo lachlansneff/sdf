@@ -93,23 +93,73 @@ use ultraviolet::{Vec2, Vec3};
 // impl_op_vec!(Op2 [x, y]);
 // impl_op_vec!(Op3 [x, y, z]);
 
-#[derive(Debug, Clone)]
-pub struct Binary<T = Op> {
-    pub lhs: T,
-    pub rhs: T,
+// #[derive(Debug, Clone)]
+// pub struct Binary<T = Op> {
+//     pub lhs: T,
+//     pub rhs: T,
+// }
+
+macro_rules! generate_op {
+    ($name:ident, const: Const($c:tt)) => {
+        pub enum $name {
+            Const($c),
+            Add {
+                lhs: Arc<Self>,
+                rhs: Arc<Self>,
+            },
+            Sub {
+                lhs: Arc<Self>,
+                rhs: Arc<Self>,
+            },
+            Mul {
+                lhs: Arc<Self>,
+                rhs: Arc<Self>,
+            },
+            Div {
+                lhs: Arc<Self>,
+                rhs: Arc<Self>,
+            },
+            Abs(Arc<Self>),
+            Neg(Arc<Self>),
+            Sqrt(Arc<Self>),
+            Squared(Arc<Self>),
+            Pow(Arc<Self>, i32),
+            Sin(Arc<Self>),
+            Cos(Arc<Self>),
+
+            Max {
+                lhs: Arc<Self>,
+                rhs: Arc<Self>,
+            },
+            Min {
+                lhs: Arc<Self>,
+                rhs: Arc<Self>,
+            },
+        }
+
+
+    };
 }
 
 #[derive(Debug, Clone)]
 pub enum Op {
     Const(f32),
-    X,
-    Y,
-    Z,
-
-    Add(Arc<Binary>),
-    Sub(Arc<Binary>),
-    Mul(Arc<Binary>),
-    Div(Arc<Binary>),
+    Add {
+        lhs: Arc<Op>,
+        rhs: Arc<Op>,
+    },
+    Sub {
+        lhs: Arc<Op>,
+        rhs: Arc<Op>,
+    },
+    Mul {
+        lhs: Arc<Op>,
+        rhs: Arc<Op>,
+    },
+    Div {
+        lhs: Arc<Op>,
+        rhs: Arc<Op>,
+    },
     Abs(Arc<Op>),
     Neg(Arc<Op>),
     Sqrt(Arc<Op>),
@@ -122,14 +172,13 @@ pub enum Op {
     Sin(Arc<Op>),
     Cos(Arc<Op>),
 
-    Max(Arc<Binary>),
-    Min(Arc<Binary>),
-
-    Remap {
-        x: Arc<Op>,
-        y: Arc<Op>,
-        z: Arc<Op>,
-        op: Arc<Op>,
+    Max {
+        lhs: Arc<Op>,
+        rhs: Arc<Op>,
+    },
+    Min {
+        lhs: Arc<Op>,
+        rhs: Arc<Op>,
     },
 }
 
