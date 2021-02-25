@@ -1,4 +1,4 @@
-use super::eval::{Eval, Value, Value2, Value3};
+use super::eval::{Eval, Real1, Real2, Real3};
 use std::{
     borrow::Borrow,
     ops::{Add, Div, Mul, Neg, Sub},
@@ -8,22 +8,22 @@ use ultraviolet::{f32x8, Vec2x8, Vec3x8};
 pub enum CpuEval {}
 
 impl Eval for CpuEval {
-    type V = CpuValue;
-    type V2 = CpuValue2;
-    type V3 = CpuValue3;
+    type R1 = CpuReal1;
+    type R2 = CpuReal2;
+    type R3 = CpuReal3;
 }
 
 #[derive(Clone, Copy)]
 #[repr(transparent)]
-pub struct CpuValue(pub f32x8);
+pub struct CpuReal1(pub f32x8);
 #[derive(Clone, Copy)]
 #[repr(transparent)]
-pub struct CpuValue2(pub Vec2x8);
+pub struct CpuReal2(pub Vec2x8);
 #[derive(Clone, Copy)]
 #[repr(transparent)]
-pub struct CpuValue3(pub Vec3x8);
+pub struct CpuReal3(pub Vec3x8);
 
-impl Value<CpuEval> for CpuValue {
+impl Real1<CpuEval> for CpuReal1 {
     fn new(v: f32) -> Self {
         Self(f32x8::splat(v))
     }
@@ -47,7 +47,7 @@ impl Value<CpuEval> for CpuValue {
         let start = start.borrow().0;
         let end = end.borrow().0;
 
-        CpuValue(start * (-self.0 + 1.0) + end * self.0)
+        CpuReal1(start * (-self.0 + 1.0) + end * self.0)
     }
 
     fn sin(&self) -> Self {
@@ -62,28 +62,28 @@ impl Value<CpuEval> for CpuValue {
         Self(self.0.abs())
     }
 }
-impl From<f32> for CpuValue {
+impl From<f32> for CpuReal1 {
     fn from(v: f32) -> Self {
         Self(f32x8::splat(v))
     }
 }
-impl From<f32x8> for CpuValue {
+impl From<f32x8> for CpuReal1 {
     fn from(v: f32x8) -> Self {
         Self(v)
     }
 }
 
-impl Value2<CpuEval> for CpuValue2 {
-    fn splat(v: impl Into<CpuValue>) -> Self {
+impl Real2<CpuEval> for CpuReal2 {
+    fn splat(v: impl Into<CpuReal1>) -> Self {
         Self(Vec2x8::broadcast(v.into().0))
     }
 
-    fn new(x: impl Into<CpuValue>, y: impl Into<CpuValue>) -> Self {
+    fn new(x: impl Into<CpuReal1>, y: impl Into<CpuReal1>) -> Self {
         Self(Vec2x8::new(x.into().0, y.into().0))
     }
 
-    fn mag(&self) -> CpuValue {
-        CpuValue(self.0.mag())
+    fn mag(&self) -> CpuReal1 {
+        CpuReal1(self.0.mag())
     }
 
     fn abs(&self) -> Self {
@@ -98,9 +98,9 @@ impl Value2<CpuEval> for CpuValue2 {
         Self(self.0.map(|v| v.cos()))
     }
 
-    fn dot(&self, other: impl Borrow<Self>) -> CpuValue {
+    fn dot(&self, other: impl Borrow<Self>) -> CpuReal1 {
         let other = other.borrow().0;
-        CpuValue(self.0.dot(other))
+        CpuReal1(self.0.dot(other))
     }
 
     fn max(&self, other: impl Borrow<Self>) -> Self {
@@ -111,26 +111,26 @@ impl Value2<CpuEval> for CpuValue2 {
         Self(self.0.min_by_component(other.borrow().0))
     }
 
-    fn x(&self) -> CpuValue {
-        CpuValue(self.0.x)
+    fn x(&self) -> CpuReal1 {
+        CpuReal1(self.0.x)
     }
 
-    fn y(&self) -> CpuValue {
-        CpuValue(self.0.y)
+    fn y(&self) -> CpuReal1 {
+        CpuReal1(self.0.y)
     }
 }
 
-impl Value3<CpuEval> for CpuValue3 {
+impl Real3<CpuEval> for CpuReal3 {
     fn splat(v: f32) -> Self {
         Self(Vec3x8::broadcast(v.into()))
     }
 
-    fn new(x: impl Into<CpuValue>, y: impl Into<CpuValue>, z: impl Into<CpuValue>) -> Self {
+    fn new(x: impl Into<CpuReal1>, y: impl Into<CpuReal1>, z: impl Into<CpuReal1>) -> Self {
         Self(Vec3x8::new(x.into().0, y.into().0, z.into().0))
     }
 
-    fn mag(&self) -> CpuValue {
-        CpuValue(self.0.mag())
+    fn mag(&self) -> CpuReal1 {
+        CpuReal1(self.0.mag())
     }
 
     fn abs(&self) -> Self {
@@ -145,9 +145,9 @@ impl Value3<CpuEval> for CpuValue3 {
         Self(self.0.map(|v| v.cos()))
     }
 
-    fn dot(&self, other: impl Borrow<Self>) -> CpuValue {
+    fn dot(&self, other: impl Borrow<Self>) -> CpuReal1 {
         let other = *other.borrow();
-        CpuValue(self.0.dot(other.0))
+        CpuReal1(self.0.dot(other.0))
     }
 
     fn max(&self, other: impl Borrow<Self>) -> Self {
@@ -158,24 +158,24 @@ impl Value3<CpuEval> for CpuValue3 {
         Self(self.0.min_by_component(other.borrow().0))
     }
 
-    fn x(&self) -> CpuValue {
-        CpuValue(self.0.x)
+    fn x(&self) -> CpuReal1 {
+        CpuReal1(self.0.x)
     }
 
-    fn y(&self) -> CpuValue {
-        CpuValue(self.0.y)
+    fn y(&self) -> CpuReal1 {
+        CpuReal1(self.0.y)
     }
 
-    fn z(&self) -> CpuValue {
-        CpuValue(self.0.z)
+    fn z(&self) -> CpuReal1 {
+        CpuReal1(self.0.z)
     }
 
-    fn xz(&self) -> CpuValue2 {
-        CpuValue2(Vec2x8::new(self.0.x, self.0.z))
+    fn xz(&self) -> CpuReal2 {
+        CpuReal2(Vec2x8::new(self.0.x, self.0.z))
     }
 
-    fn zxy(&self) -> CpuValue3 {
-        CpuValue3(Vec3x8::new(self.0.z, self.0.x, self.0.y))
+    fn zxy(&self) -> CpuReal3 {
+        CpuReal3(Vec3x8::new(self.0.z, self.0.x, self.0.y))
     }
 }
 
@@ -201,10 +201,10 @@ macro_rules! impl_operators {
         }
     };
     ($vec:ty) => {
-        impl_operators!($vec => (map field) Add::add[CpuValue]);
-        impl_operators!($vec => (map field) Sub::sub[CpuValue]);
-        impl_operators!($vec => (map field) Mul::mul[CpuValue]);
-        impl_operators!($vec => (map field) Div::div[CpuValue]);
+        impl_operators!($vec => (map field) Add::add[CpuReal1]);
+        impl_operators!($vec => (map field) Sub::sub[CpuReal1]);
+        impl_operators!($vec => (map field) Mul::mul[CpuReal1]);
+        impl_operators!($vec => (map field) Div::div[CpuReal1]);
 
         impl_operators!($vec => Add::add[Self]);
         impl_operators!($vec => (map) Add::add[f32]);
@@ -259,6 +259,6 @@ macro_rules! impl_operators {
     };
 }
 
-impl_operators!(value CpuValue);
-impl_operators!(CpuValue2);
-impl_operators!(CpuValue3);
+impl_operators!(value CpuReal1);
+impl_operators!(CpuReal2);
+impl_operators!(CpuReal3);

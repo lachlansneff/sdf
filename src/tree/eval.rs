@@ -9,19 +9,19 @@ use std::{
 ///     a. for regular point evaluation
 ///     b. for interval/affine arithmetic evaluation
 pub trait Evaluate {
-    fn eval<E: Eval>(&self, p: E::V3) -> E::V;
+    fn eval<E: Eval>(&self, p: E::R3) -> E::R1;
 }
 
 pub trait Eval
 where
     Self: Sized,
 {
-    type V: Value<Self>;
-    type V2: Value2<Self>;
-    type V3: Value3<Self>;
+    type R1: Real1<Self>;
+    type R2: Real2<Self>;
+    type R3: Real3<Self>;
 }
 
-pub trait Value<E: Eval>:
+pub trait Real1<E: Eval>:
     Add<Self, Output = Self>
     + Add<f32, Output = Self>
     + Sub<Self, Output = Self>
@@ -49,18 +49,18 @@ where
     fn abs(&self) -> Self;
 }
 
-pub trait Value2<E: Eval>:
+pub trait Real2<E: Eval>:
     Add<Self, Output = Self>
-    + Add<E::V, Output = Self>
+    + Add<E::R1, Output = Self>
     + Add<f32, Output = Self>
     + Sub<Self, Output = Self>
-    + Sub<E::V, Output = Self>
+    + Sub<E::R1, Output = Self>
     + Sub<f32, Output = Self>
     + Mul<Self, Output = Self>
-    + Mul<E::V, Output = Self>
+    + Mul<E::R1, Output = Self>
     + Mul<f32, Output = Self>
     + Div<Self, Output = Self>
-    + Div<E::V, Output = Self>
+    + Div<E::R1, Output = Self>
     + Div<f32, Output = Self>
     + Neg<Output = Self>
     + Clone
@@ -68,36 +68,36 @@ where
     Self: Sized,
     Self: Borrow<Self>,
 {
-    fn splat(v: impl Into<E::V>) -> Self;
-    fn new(x: impl Into<E::V>, y: impl Into<E::V>) -> Self;
+    fn splat(v: impl Into<E::R1>) -> Self;
+    fn new(x: impl Into<E::R1>, y: impl Into<E::R1>) -> Self;
 
-    fn mag(&self) -> E::V;
+    fn mag(&self) -> E::R1;
     fn abs(&self) -> Self;
     fn sin(&self) -> Self;
     fn cos(&self) -> Self;
-    fn dot(&self, other: impl Borrow<Self>) -> E::V;
+    fn dot(&self, other: impl Borrow<Self>) -> E::R1;
 
     fn max(&self, other: impl Borrow<Self>) -> Self;
     fn min(&self, other: impl Borrow<Self>) -> Self;
 
-    fn x(&self) -> E::V;
-    fn y(&self) -> E::V;
+    fn x(&self) -> E::R1;
+    fn y(&self) -> E::R1;
 
     // Add more as necessary.
 }
 
-pub trait Value3<E: Eval>:
+pub trait Real3<E: Eval>:
     Add<Self, Output = Self>
-    + Add<E::V, Output = Self>
+    + Add<E::R1, Output = Self>
     + Add<f32, Output = Self>
     + Sub<Self, Output = Self>
-    + Sub<E::V, Output = Self>
+    + Sub<E::R1, Output = Self>
     + Sub<f32, Output = Self>
     + Mul<Self, Output = Self>
-    + Mul<E::V, Output = Self>
+    + Mul<E::R1, Output = Self>
     + Mul<f32, Output = Self>
     + Div<Self, Output = Self>
-    + Div<E::V, Output = Self>
+    + Div<E::R1, Output = Self>
     + Div<f32, Output = Self>
     + Neg<Output = Self>
     + Clone
@@ -106,23 +106,23 @@ where
     Self: Borrow<Self>,
 {
     fn splat(v: f32) -> Self;
-    fn new(x: impl Into<E::V>, y: impl Into<E::V>, z: impl Into<E::V>) -> Self;
+    fn new(x: impl Into<E::R1>, y: impl Into<E::R1>, z: impl Into<E::R1>) -> Self;
 
-    fn mag(&self) -> E::V;
+    fn mag(&self) -> E::R1;
     fn abs(&self) -> Self;
     fn sin(&self) -> Self;
     fn cos(&self) -> Self;
-    fn dot(&self, other: impl Borrow<Self>) -> E::V;
+    fn dot(&self, other: impl Borrow<Self>) -> E::R1;
 
     fn max(&self, other: impl Borrow<Self>) -> Self;
     fn min(&self, other: impl Borrow<Self>) -> Self;
 
-    fn x(&self) -> E::V;
-    fn y(&self) -> E::V;
-    fn z(&self) -> E::V;
+    fn x(&self) -> E::R1;
+    fn y(&self) -> E::R1;
+    fn z(&self) -> E::R1;
 
-    fn xz(&self) -> E::V2;
+    fn xz(&self) -> E::R2;
 
-    fn zxy(&self) -> E::V3;
+    fn zxy(&self) -> E::R3;
     // Add more as necessary.
 }

@@ -6,6 +6,7 @@ use self::{eval::Evaluate, eval_cpu::CpuEval};
 
 pub mod eval;
 pub mod eval_cpu;
+// pub mod eval_glsl;
 pub mod fills;
 pub mod operations;
 pub mod shapes;
@@ -25,17 +26,17 @@ pub enum Shape {
 }
 
 impl Evaluate for Shape {
-    fn eval<E: eval::Eval>(&self, p: E::V3) -> E::V {
-        use eval::{Value, Value3};
+    fn eval<E: eval::Eval>(&self, p: E::R3) -> E::R1 {
+        use eval::{Real1, Real3};
         match self {
-            Shape::Sphere { radius } => shapes::sphere::<E>(p, E::V::new(radius.get())),
+            Shape::Sphere { radius } => shapes::sphere::<E>(p, E::R1::new(radius.get())),
             Shape::Box {
                 side_x,
                 side_y,
                 side_z,
             } => shapes::rectangular_prism::<E>(
                 p,
-                E::V3::new(side_x.get(), side_y.get(), side_z.get()),
+                E::R3::new(side_x.get(), side_y.get(), side_z.get()),
             ),
         }
     }
@@ -68,14 +69,14 @@ pub enum Fill {
 }
 
 impl Evaluate for Fill {
-    fn eval<E: eval::Eval>(&self, p: E::V3) -> E::V {
-        use eval::Value;
+    fn eval<E: eval::Eval>(&self, p: E::R3) -> E::R1 {
+        use eval::Real1;
         match self {
             Fill::Gyroid { scale, thickness } => {
-                fills::gyroid::<E>(p, E::V::new(scale.get()), E::V::new(thickness.get()))
+                fills::gyroid::<E>(p, E::R1::new(scale.get()), E::R1::new(thickness.get()))
             }
             Fill::SchwarzP { scale, thickness } => {
-                fills::schwarz_p::<E>(p, E::V::new(scale.get()), E::V::new(thickness.get()))
+                fills::schwarz_p::<E>(p, E::R1::new(scale.get()), E::R1::new(thickness.get()))
             }
         }
     }
@@ -211,8 +212,8 @@ impl CsgTree {
         &'a self,
         points: impl IntoIterator<Item = Vec3> + 'a,
     ) -> impl Iterator<Item = f32> + 'a {
-        use eval::{Value, Value3};
-        use eval_cpu::{CpuValue, CpuValue3};
+        use eval::{Real1, Real3};
+        use eval_cpu::{CpuReal1, CpuReal3};
 
         pub struct Chunk8Iter<I>(I);
 
@@ -259,7 +260,7 @@ impl CsgTree {
             }
         }
 
-        fn recurse(node: &CsgNode, p: CpuValue3) -> CpuValue {
+        fn recurse(node: &CsgNode, p: CpuReal3) -> CpuReal1 {
             match node {
                 CsgNode::Shape(shape, fill) => {
                     if let Some(fill) = fill {
@@ -277,7 +278,7 @@ impl CsgTree {
                 CsgNode::SmoothUnion { lhs, rhs, k } => operations::smooth_union::<CpuEval>(
                     recurse(&lhs, p),
                     recurse(&rhs, p),
-                    CpuValue::new(k.get()),
+                    CpuReal1::new(k.get()),
                 ),
                 CsgNode::Intersection { lhs, rhs } => {
                     operations::intersection::<CpuEval>(recurse(&lhs, p), recurse(&rhs, p))
@@ -286,7 +287,7 @@ impl CsgTree {
                     operations::smooth_intersection::<CpuEval>(
                         recurse(&lhs, p),
                         recurse(&rhs, p),
-                        CpuValue::new(k.get()),
+                        CpuReal1::new(k.get()),
                     )
                 }
                 CsgNode::Subtraction { lhs, rhs } => {
@@ -296,11 +297,11 @@ impl CsgTree {
                     operations::smooth_subtraction::<CpuEval>(
                         recurse(&lhs, p),
                         recurse(&rhs, p),
-                        CpuValue::new(k.get()),
+                        CpuReal1::new(k.get()),
                     )
                 }
                 CsgNode::Translate { x, y, z, node } => {
-                    recurse(&node, p + CpuValue3::new(x.get(), y.get(), z.get()))
+                    recurse(&node, p + CpuReal3::new(x.get(), y.get(), z.get()))
                 }
                 CsgNode::Rotate { .. } => todo!(),
             }
@@ -310,7 +311,7 @@ impl CsgTree {
 
         Chunk8Iter(points.into_iter())
             .map(move |(array, count)| {
-                F32x8Iter::new(recurse(root, CpuValue3(array.into())).0, count)
+                F32x8Iter::new(recurse(root, CpuReal3(array.into())).0, count)
             })
             .flatten()
     }

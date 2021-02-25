@@ -1,10 +1,10 @@
-use super::eval::{Eval, Value as _, Value2 as _, Value3 as _};
+use super::eval::{Eval, Real1 as _, Real2 as _, Real3 as _};
 
 // pub fn circle(point: impl Point, radius: Op) -> Op {
 //     Op2::XY.mag() - radius
 // }
 
-pub fn sphere<E: Eval>(p: E::V3, radius: E::V) -> E::V {
+pub fn sphere<E: Eval>(p: E::R3, radius: E::R1) -> E::R1 {
     p.mag() - radius
 }
 
@@ -14,9 +14,9 @@ pub fn sphere<E: Eval>(p: E::V3, radius: E::V) -> E::V {
 // }
 
 /// A box.
-pub fn rectangular_prism<E: Eval>(p: E::V3, sides: E::V3) -> E::V {
+pub fn rectangular_prism<E: Eval>(p: E::R3, sides: E::R3) -> E::R1 {
     let q = p.abs() - sides;
-    return q.max(E::V3::splat(0.0)).mag() + q.x().max(q.y().max(q.z())).min(E::V::new(0.0));
+    return q.max(E::R3::splat(0.0)).mag() + q.x().max(q.y().max(q.z())).min(E::R1::new(0.0));
 }
 
 // float sdf_cylinder(vec3 p, float h, float r) {
@@ -24,8 +24,8 @@ pub fn rectangular_prism<E: Eval>(p: E::V3, sides: E::V3) -> E::V {
 //   return min(max(d.x,d.y),0.0) + length(max(d,0.0));
 // }
 
-pub fn cylinder<E: Eval>(p: E::V3, height: E::V, radius: E::V) -> E::V {
+pub fn cylinder<E: Eval>(p: E::R3, height: E::R1, radius: E::R1) -> E::R1 {
     // Should this be `circle(radius).extrude(height)` instead?
-    let d = E::V2::new(p.xz().mag(), p.y());
-    d.max(E::V2::splat(0.0)).mag() + d.x().max(d.y()).min(E::V::new(0.0))
+    let d = E::R2::new(p.xz().mag(), p.y()).abs() - E::R2::new(height, radius);
+    d.max(E::R2::splat(0.0)).mag() + d.x().max(d.y()).min(E::R1::new(0.0))
 }
