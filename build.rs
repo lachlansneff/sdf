@@ -1,8 +1,6 @@
 use shaderc;
-use std::{
-    env, fs, io,
-    path::{Path, PathBuf},
-};
+use spirv_builder::SpirvBuilder;
+use std::{env, error::Error, fs, io, path::{Path, PathBuf}};
 
 fn visit_files(dir: &Path, f: &mut dyn FnMut(&Path) -> io::Result<()>) -> io::Result<()> {
     if dir.is_dir() {
@@ -21,7 +19,7 @@ fn visit_files(dir: &Path, f: &mut dyn FnMut(&Path) -> io::Result<()>) -> io::Re
     Ok(())
 }
 
-fn main() -> io::Result<()> {
+fn compile_glsl_shaders() -> io::Result<()> {
     let mut compiler = shaderc::Compiler::new().expect("failed to initialize glsl compiler");
     let mut compile_options =
         shaderc::CompileOptions::new().expect("failed to initialize compiler options");
@@ -64,6 +62,26 @@ fn main() -> io::Result<()> {
 
         Ok(())
     })?;
+
+    Ok(())
+}
+
+fn compile_rust_shaders() -> Result<(), Box<dyn Error>> {
+    fn build_shader(path: &str) -> Result<(), Box<dyn Error>> {
+        SpirvBuilder::new(path)
+            .spirv_version(1, 0)
+            .build()?;
+        Ok(())
+    }
+
+    build_shader("shaders/sdf-shader")?;
+
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    compile_glsl_shaders()?;
+    compile_rust_shaders()?;
 
     // Set debug cfg
     if let Ok(profile) = env::var("PROFILE") {

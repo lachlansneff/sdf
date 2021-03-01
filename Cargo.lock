@@ -56,6 +56,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
+name = "bimap"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f92b72b8f03128773278bf74418b9205f3d2a12c39a61f92395f47af390c32bf"
+
+[[package]]
 name = "bit-set"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -356,6 +362,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_more"
+version = "0.99.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41cb0e6161ad61ed084a36ba71fbba9e3ac5aee3606fb607fe08da6acbcf3d8c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "dispatch"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -375,6 +392,18 @@ name = "downcast-rs"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
+
+[[package]]
+name = "filetime"
+version = "0.2.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d34cfa13a63ae058bfa601fe9e313bbdb3746427c1459185464ce0fcf62e1e8"
+dependencies = [
+ "cfg-if 1.0.0",
+ "libc",
+ "redox_syscall 0.2.5",
+ "winapi 0.3.9",
+]
 
 [[package]]
 name = "fixedbitset"
@@ -569,6 +598,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "glam"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ad8819b352632f676098176a51e11e324e8cee4c2518dd67e58c36b848438e6"
+dependencies = [
+ "num-traits",
+ "version_check",
+]
+
+[[package]]
 name = "glow"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -759,6 +798,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "libm"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7d73b3f436185384286bd8098d17ec07c9a7d2388a6599f824d8502b529702a"
+
+[[package]]
 name = "lock_api"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -888,7 +933,7 @@ dependencies = [
  "log",
  "num-traits",
  "petgraph",
- "spirv_headers",
+ "spirv_headers 1.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
 ]
 
@@ -987,6 +1032,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
 dependencies = [
  "autocfg",
+ "libm",
 ]
 
 [[package]]
@@ -1137,6 +1183,12 @@ version = "0.1.2"
 source = "git+https://github.com/gfx-rs/gfx?rev=80655862ac4afc5efb6675eb9ac7c38e73544750#80655862ac4afc5efb6675eb9ac7c38e73544750"
 
 [[package]]
+name = "raw-string"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0501e134c6905fee1f10fed25b0a7e1261bf676cffac9543a7d0730dec01af2"
+
+[[package]]
 name = "raw-window-handle"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1184,6 +1236,40 @@ name = "regex-syntax"
 version = "0.6.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5eb417147ba9860a96cfe72a0b93bf88fee1744b5636ec99ab20c1aa9376581"
+
+[[package]]
+name = "rspirv"
+version = "0.7.0"
+source = "git+https://github.com/gfx-rs/rspirv.git?rev=279cc519166b6a0b8c51d8f130949f75031e29fe#279cc519166b6a0b8c51d8f130949f75031e29fe"
+dependencies = [
+ "derive_more",
+ "fxhash",
+ "num-traits",
+ "spirv_headers 1.5.0 (git+https://github.com/gfx-rs/rspirv.git?rev=279cc519166b6a0b8c51d8f130949f75031e29fe)",
+]
+
+[[package]]
+name = "rustc-demangle"
+version = "0.1.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e3bad0ee36814ca07d7968269dd4b7ec89ec2da10c4bb613928d3077083c232"
+
+[[package]]
+name = "rustc_codegen_spirv"
+version = "0.3.0-alpha.0"
+source = "git+https://github.com/EmbarkStudios/rust-gpu.git?branch=main#98fb0e0a9425d1b3b2a517ca4e3f6418bb36654a"
+dependencies = [
+ "bimap",
+ "indexmap",
+ "rspirv",
+ "rustc-demangle",
+ "serde",
+ "serde_json",
+ "smallvec",
+ "spirv-tools",
+ "tar",
+ "topological-sort",
+]
 
 [[package]]
 name = "rusttype"
@@ -1239,6 +1325,7 @@ dependencies = [
  "mint",
  "pollster",
  "shaderc",
+ "spirv-builder",
  "ultraviolet",
  "wgpu",
  "wgpu-subscriber",
@@ -1246,10 +1333,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "sdf-shader"
+version = "0.1.0"
+dependencies = [
+ "spirv-std",
+ "spirv-std-macros",
+]
+
+[[package]]
 name = "serde"
 version = "1.0.123"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92d5161132722baa40d802cc70b15262b98258453e85e5d1d365c757c73869ae"
+dependencies = [
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_derive"
+version = "1.0.123"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9391c295d64fc0abb2c556bad848f33cb8296276b1ad2677d1ae1ace4f258f31"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "serde_json"
@@ -1329,10 +1438,58 @@ dependencies = [
 ]
 
 [[package]]
+name = "spirv-builder"
+version = "0.3.0-alpha.0"
+source = "git+https://github.com/EmbarkStudios/rust-gpu.git?branch=main#98fb0e0a9425d1b3b2a517ca4e3f6418bb36654a"
+dependencies = [
+ "memchr",
+ "raw-string",
+ "rustc_codegen_spirv",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "spirv-std"
+version = "0.3.0-alpha.0"
+source = "git+https://github.com/EmbarkStudios/rust-gpu.git?branch=main#98fb0e0a9425d1b3b2a517ca4e3f6418bb36654a"
+dependencies = [
+ "glam",
+ "num-traits",
+ "spirv-std-macros",
+]
+
+[[package]]
+name = "spirv-std-macros"
+version = "0.3.0-alpha.0"
+source = "git+https://github.com/EmbarkStudios/rust-gpu.git?branch=main#98fb0e0a9425d1b3b2a517ca4e3f6418bb36654a"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "spirv-tools"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "148f3d945efac91764e0000290017ec65674f34633cfad1d2c038b3bedd794e8"
+dependencies = [
+ "spirv-tools-sys",
+]
+
+[[package]]
+name = "spirv-tools-sys"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5c5e3026e72f862ac788d9f9bf703ae133045694e83a5bef102f6289fd62824"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "spirv_cross"
 version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06db6bd7b6518f761593783e2896eefe55e90455efc5f44511078ce0426ed418"
+source = "git+https://github.com/lachlansneff/spirv_cross.git#a022f6879d37d8372ce3440602d1098de3c3eaf7"
 dependencies = [
  "cc",
  "js-sys",
@@ -1344,6 +1501,15 @@ name = "spirv_headers"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f5b132530b1ac069df335577e3581765995cba5a13995cdbbdbc8fb057c532c"
+dependencies = [
+ "bitflags",
+ "num-traits",
+]
+
+[[package]]
+name = "spirv_headers"
+version = "1.5.0"
+source = "git+https://github.com/gfx-rs/rspirv.git?rev=279cc519166b6a0b8c51d8f130949f75031e29fe#279cc519166b6a0b8c51d8f130949f75031e29fe"
 dependencies = [
  "bitflags",
  "num-traits",
@@ -1373,6 +1539,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
+]
+
+[[package]]
+name = "tar"
+version = "0.4.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0bcfbd6a598361fda270d82469fff3d65089dc33e175c9a131f7b4cd395f228"
+dependencies = [
+ "filetime",
+ "libc",
+ "xattr",
 ]
 
 [[package]]
@@ -1429,6 +1606,12 @@ checksum = "a31142970826733df8241ef35dc040ef98c679ab14d7c3e54d827099b3acecaa"
 dependencies = [
  "serde",
 ]
+
+[[package]]
+name = "topological-sort"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa7c7f42dea4b1b99439786f5633aeb9c14c1b53f75e282803c2ec2ad545873c"
 
 [[package]]
 name = "tracing"
@@ -1874,6 +2057,15 @@ dependencies = [
  "libc",
  "maybe-uninit",
  "pkg-config",
+]
+
+[[package]]
+name = "xattr"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "244c3741f4240ef46274860397c7c74e50eb23624996930e484c16679633a54c"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

@@ -8,7 +8,6 @@ pub enum Reg {
     B = 1,
 }
 
-#[repr(u16)]
 pub enum Combination {
     // These have no arguments (except consuming the distances stored in registers A and B).
     Union = 1,
@@ -31,6 +30,11 @@ pub enum Shape {
 
     RectangularPrism = 8, // store the side lengths somehow
     // ...
+}
+
+/// The opcode is zero for this.
+pub fn ret(out: Reg) -> [u32; 4] {
+    [(out as u32) << 30, 0, 0, 0]
 }
 
 pub fn shape_unary(shape: Shape, out: Reg, transform_idx: u32, arg0: u32) -> [u32; 4] {

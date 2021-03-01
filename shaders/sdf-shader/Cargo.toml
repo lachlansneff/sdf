@@ -1,0 +1,12 @@
+[package]
+name = "sdf-shader"
+version = "0.1.0"
+authors = ["Lachlan Sneff <lachlan.sneff@gmail.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["dylib"]
+
+[dependencies]
+spirv-std-macros = { git = "https://github.com/EmbarkStudios/rust-gpu.git", branch = "main" }
+spirv-std = { git = "https://github.com/EmbarkStudios/rust-gpu.git", branch = "main" }

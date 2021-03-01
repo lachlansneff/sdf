@@ -14,7 +14,7 @@ macro_rules! include_spirv {
 }
 
 #[derive(AsStd140)]
-struct ShaderUniforms {
+struct ShaderData {
     matrix: mint::ColumnMatrix4<f32>,
     eye: mint::Vector3<f32>,
     resolution: mint::Vector2<f32>,
@@ -38,6 +38,7 @@ impl SDFRender {
 
         let vert_shader = device.create_shader_module(&include_spirv!("sdf.vert"));
         let frag_shader = device.create_shader_module(&include_spirv!("sdf.frag"));
+        // let shader = device.create_shader_module(&wgpu::include_spirv!(env!("sdf_shader.spv")));
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
@@ -57,7 +58,7 @@ impl SDFRender {
             label: None,
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
             mapped_at_creation: false,
-            size: mem::size_of::<<ShaderUniforms as AsStd140>::Std140Type>() as u64,
+            size: mem::size_of::<<ShaderData as AsStd140>::Std140Type>() as u64,
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -112,7 +113,7 @@ impl SDFRender {
         let matrix = camera.matrix();
         let resolution: Vec2 = Vec2::new(resolution.width as f32, resolution.height as f32);
 
-        let uniforms = ShaderUniforms {
+        let uniforms = ShaderData {
             matrix: matrix.transposed().into(),
             eye: eye.into(),
             resolution: resolution.into(),
