@@ -1,17 +1,29 @@
 use glam::{vec3, UVec2, UVec3, Vec3, Vec3Swizzles, Vec4Swizzles};
+use spirv_std::StorageImage2d;
+
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
-use spirv_std::StorageImage2d;
 
 use crate::{
     deriv::{Deriv, Deriv3},
+    grid::Grid,
     sdf, ViewParams,
 };
 
 #[spirv(compute(threads(8, 8, 1)))]
+pub fn sphere_push(
+    #[spirv(global_invocation_id)] global_invocation_id: UVec3,
+    #[spirv(num_workgroups)] num_workgroups: UVec3,
+    #[spirv(push_constant)] view_params: &ViewParams,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] farthest_grid_data: &mut [f32],
+) {
+    let grid_size = num_workgroups.xy() * 8;
+    let mut grid = Grid::new(grid_size.x as usize, farthest_grid_data);
+}
+
+#[spirv(compute(threads(8, 8, 1)))]
 pub fn render_sdf_final(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
-
     #[spirv(push_constant)] view_params: &ViewParams,
     // #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] tape: &[Inst],
     #[spirv(descriptor_set = 0, binding = 1)] output_texture: &StorageImage2d,
@@ -38,6 +50,7 @@ pub fn render_sdf_final(
         let dif = normals.dot(view_params.light_pos.normalize());
         color.lerp(shade, dif) * ao
     } else {
+        // Background color
         vec3(140.0 / 255.0, 156.0 / 255.0, 161.0 / 255.0)
     };
 
