@@ -1,106 +1,96 @@
 //! An implementation of forward-mode automatic differentiation
 //! for determining the normals of an sdf.
 
-use spirv_std::{
-    num_traits::Float as _,
-    glam::Vec3,
-};
-use core::ops::{Neg, Add, Sub, Mul, Div};
+use core::ops::{Add, Div, Mul, Neg, Sub};
+use glam::Vec3;
+#[cfg(target_arch = "spirv")]
+use spirv_std::num_traits::Float as _;
 
-use crate::extra::ExtraVecMethods;
+use crate::extra::VectorN;
 
 /// A dual vector of rank 3, defined as "_v_ + _d_ε".
 /// Use this in place of Vec3 to perform automatic
 /// forward-mode differentiation.
+///
+/// This is automatically set up for cartesian coordinates.
 #[derive(Default, Clone, Copy)]
 pub struct DualVec3 {
-    v: Vec3,
-    d: Vec3,
+    pub x: Dual,
+    pub y: Dual,
+    pub z: Dual,
 }
 
 impl DualVec3 {
     pub fn new(v: Vec3) -> Self {
-        Self::new_d(v, Vec3::zero())
-    }
+        let mut this = Self {
+            x: Dual::new(v.x),
+            y: Dual::new(v.y),
+            z: Dual::new(v.z),
+        };
+        // Set up for cartesian coordinates.
+        this.x.d.x = 1.0;
+        this.y.d.y = 1.0;
+        this.z.d.z = 1.0;
 
-    fn new_d(v: Vec3, d: Vec3) -> Self {
-        Self { v, d }
+        this
     }
 
     pub fn zero() -> Self {
-        Self::new(Vec3::zero())
+        Self::new(Vec3::ZERO)
     }
 
     pub fn one() -> Self {
-        Self::new(Vec3::one())
+        Self::new(Vec3::ONE)
     }
 
-    pub fn v(self) -> Vec3 {
-        self.v
+    pub fn dot(self, other: Self) -> Dual {
+        self.x * other.x + self.y * other.y + self.z + other.z
     }
 
-    pub fn d(self) -> Vec3 {
-        self.d
-    }
-
-    pub fn x(self) -> Dual {
-        Dual::new_d(self.v.x, self.d)
-    }
-
-    pub fn y(self) -> Dual {
-        Dual::new_d(self.v.y, self.d)
-    }
-
-    pub fn z(self) -> Dual {
-        Dual::new_d(self.v.z, self.d)
-    }
-
-    pub fn dot(self, rhs: Self) -> Dual {
-        self.x() * rhs.x() + self.y() * rhs.y() + self.z() + rhs.z()
-    }
-
-    pub fn max(self, rhs: Self) -> Self {
-        if self.v >= rhs.v {
-            self
-        } else {
-            rhs
+    pub fn max(self, other: Self) -> Self {
+        Self {
+            x: self.x.max(other.x),
+            y: self.y.max(other.y),
+            z: self.z.max(other.z),
         }
     }
 
-    pub fn min(self, rhs: Self) -> Self {
-        if self.v < rhs.v {
-            self
-        } else {
-            rhs
+    pub fn min(self, other: Self) -> Self {
+        Self {
+            x: self.x.min(other.x),
+            y: self.y.min(other.y),
+            z: self.z.min(other.z),
         }
     }
 
     pub fn abs(self) -> Self {
-        if self.v > Vec3::zero() {
-            self
-        } else {
-            -self
+        Self {
+            x: self.x.abs(),
+            y: self.y.abs(),
+            z: self.z.abs(),
         }
     }
 
     pub fn length(self) -> Dual {
-        let x = self.x();
-        let y = self.y();
-        let z = self.z();
-
-        ((x * x) + (y * y) + (z * z)).sqrt()
+        ((self.x * self.x) + (self.y * self.y) + (self.z * self.z)).sqrt()
     }
 }
 
-impl ExtraVecMethods for DualVec3 {
+impl VectorN for DualVec3 {
     fn sin(self) -> Self {
-        let a = self.v.cos();
-        Self::new_d(self.v.sin(), self.d * a)
+        Self {
+            x: self.x.sin(),
+            y: self.y.sin(),
+            z: self.z.sin(),
+        }
     }
 
     fn cos(self) -> Self {
-        let a = -self.v.sin();
-        Self::new_d(self.v.cos(), self.d * a)
+        Self {
+            x: self.x.cos(),
+            y: self.y.cos(),
+            z: self.z.cos(),
+        }
     }
 }
 
@@ -108,7 +98,11 @@ impl Add for DualVec3 {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
-        Self::new_d(self.v + rhs.v, self.d + rhs.d)
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
     }
 }
 
@@ -116,7 +110,7 @@ impl Add<Vec3> for DualVec3 {
     type Output = Self;
 
     fn add(self, rhs: Vec3) -> Self {
-        <Self as Add>::add(self, Self::new_d(rhs, Vec3::zero()))
+        <Self as Add>::add(self, Self::new(rhs))
     }
 }
 
@@ -124,7 +118,7 @@ impl Add<f32> for DualVec3 {
     type Output = Self;
 
     fn add(self, rhs: f32) -> Self {
-        <Self as Add>::add(self, Self::new_d(Vec3::splat(rhs), Vec3::zero()))
+        <Self as Add>::add(self, Self::new(Vec3::splat(rhs)))
     }
 }
 
@@ -132,7 +126,11 @@ impl Sub for DualVec3 {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
-        Self::new_d(self.v - rhs.v, self.d - rhs.d)
+        Self {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
+        }
     }
 }
 
@@ -140,7 +138,7 @@ impl Sub<Vec3> for DualVec3 {
     type Output = Self;
 
     fn sub(self, rhs: Vec3) -> Self {
-        <Self as Sub>::sub(self, Self::new_d(rhs, Vec3::zero()))
+        <Self as Sub>::sub(self, Self::new(rhs))
     }
 }
 
@@ -148,7 +146,7 @@ impl Sub<f32> for DualVec3 {
     type Output = Self;
 
     fn sub(self, rhs: f32) -> Self {
-        <Self as Sub>::sub(self, Self::new_d(Vec3::splat(rhs), Vec3::zero()))
+        <Self as Sub>::sub(self, Self::new(Vec3::splat(rhs)))
     }
 }
 
@@ -156,7 +154,11 @@ impl Mul for DualVec3 {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
-        Self::new_d(self.v * rhs.v, self.d * rhs.v + rhs.d * self.v)
+        Self {
+            x: self.x * rhs.x,
+            y: self.y * rhs.y,
+            z: self.z * rhs.z,
+        }
     }
 }
 
@@ -164,7 +166,7 @@ impl Mul<Vec3> for DualVec3 {
     type Output = Self;
 
     fn mul(self, rhs: Vec3) -> Self {
-        <Self as Mul>::mul(self, Self::new_d(rhs, Vec3::zero()))
+        <Self as Mul>::mul(self, Self::new(rhs))
     }
 }
 
@@ -172,7 +174,7 @@ impl Mul<f32> for DualVec3 {
     type Output = Self;
 
     fn mul(self, rhs: f32) -> Self {
-        <Self as Mul>::mul(self, Self::new_d(Vec3::splat(rhs), Vec3::zero()))
+        <Self as Mul>::mul(self, Self::new(Vec3::splat(rhs)))
     }
 }
 
@@ -180,7 +182,11 @@ impl Div for DualVec3 {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self {
-        Self::new_d(self.v / rhs.v, (self.d * rhs.v - rhs.d * self.v) / (rhs.v * rhs.v))
+        Self {
+            x: self.x / rhs.x,
+            y: self.y / rhs.y,
+            z: self.z / rhs.z,
+        }
     }
 }
 
@@ -188,7 +194,7 @@ impl Div<Vec3> for DualVec3 {
     type Output = Self;
 
     fn div(self, rhs: Vec3) -> Self {
-        <Self as Div>::div(self, Self::new_d(rhs, Vec3::zero()))
+        <Self as Div>::div(self, Self::new(rhs))
     }
 }
 
@@ -196,7 +202,7 @@ impl Div<f32> for DualVec3 {
     type Output = Self;
 
     fn div(self, rhs: f32) -> Self {
-        <Self as Div>::div(self, Self::new_d(Vec3::splat(rhs), Vec3::zero()))
+        <Self as Div>::div(self, Self::new(Vec3::splat(rhs)))
     }
 }
 
@@ -204,7 +210,11 @@ impl Neg for DualVec3 {
     type Output = Self;
 
     fn neg(self) -> Self {
-        Self::new_d(-self.v, -self.d)
+        Self {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+        }
     }
 }
 
@@ -217,19 +227,15 @@ pub struct Dual {
 }
 
 impl Dual {
-    pub fn new(v: f32) -> Self {
-        Self::new_d(v, Vec3::zero())
+    pub const fn new(v: f32) -> Self {
+        Self::new_d(v, Vec3::ZERO)
     }
 
-    fn new_d(v: f32, d: Vec3) -> Self {
+    const fn new_d(v: f32, d: Vec3) -> Self {
         Dual { v, d }
     }
 
-    pub fn v(self) -> f32 {
-        self.v
-    }
-
-    pub fn d(self) -> Vec3 {
+    pub fn derivatives(self) -> Vec3 {
         self.d
     }
 
@@ -258,8 +264,8 @@ impl Dual {
     }
 
     pub fn sqrt(self) -> Self {
-        let v_sqrt = self.v.sqrt();
-        Self::new_d(v_sqrt, self.d / (v_sqrt * 2.0))
+        let a = self.v.sqrt();
+        Self::new_d(a, self.d / (a * 2.0))
     }
 
     pub fn sin(self) -> Self {
@@ -277,7 +283,10 @@ impl Add for Dual {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
-        Self::new_d(self.v + rhs.v, self.d + rhs.d)
+        Self {
+            v: self.v + rhs.v,
+            d: self.d + rhs.d,
+        }
     }
 }
 
@@ -285,7 +294,10 @@ impl Add<f32> for Dual {
     type Output = Self;
 
     fn add(self, rhs: f32) -> Self {
-        <Self as Add>::add(self, Self::new_d(rhs, Vec3::zero()))
+        Self {
+            v: self.v + rhs,
+            ..self
+        }
     }
 }
 
@@ -293,7 +305,10 @@ impl Sub for Dual {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
-        Self::new_d(self.v - rhs.v, self.d - rhs.d)
+        Self {
+            v: self.v - rhs.v,
+            d: self.d - rhs.d,
+        }
     }
 }
 
@@ -301,7 +316,10 @@ impl Sub<f32> for Dual {
     type Output = Self;
 
     fn sub(self, rhs: f32) -> Self {
-        <Self as Sub>::sub(self, Self::new_d(rhs, Vec3::zero()))
+        Self {
+            v: self.v - rhs,
+            ..self
+        }
     }
 }
 
@@ -309,7 +327,10 @@ impl Mul for Dual {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
-        Self::new_d(self.v * rhs.v, self.d * rhs.v + rhs.d * self.v)
+        Self {
+            v: self.v * rhs.v,
+            d: self.d * rhs.v + rhs.d * self.v,
+        }
     }
 }
 
@@ -317,7 +338,10 @@ impl Mul<f32> for Dual {
     type Output = Self;
 
     fn mul(self, rhs: f32) -> Self {
-        <Self as Mul>::mul(self, Self::new_d(rhs, Vec3::zero()))
+        Self {
+            v: self.v * rhs,
+            d: self.d * rhs,
+        }
     }
 }
 
@@ -325,7 +349,10 @@ impl Div for Dual {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self {
-        Self::new_d(self.v / rhs.v, (self.d * rhs.v - rhs.d * self.v) / (rhs.v * rhs.v))
+        Self {
+            v: self.v / rhs.v,
+            d: (self.d * rhs.v - rhs.d * self.v) / (rhs.v * rhs.v),
+        }
     }
 }
 
@@ -333,7 +360,10 @@ impl Div<f32> for Dual {
     type Output = Self;
 
     fn div(self, rhs: f32) -> Self {
-        <Self as Div>::div(self, Self::new_d(rhs, Vec3::zero()))
+        Self {
+            v: self.v / rhs,
+            d: self.d / rhs,
+        }
     }
 }
 

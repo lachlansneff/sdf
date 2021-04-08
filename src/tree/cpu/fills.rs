@@ -7,7 +7,12 @@ use ultraviolet::{f32x8, Vec3x8};
 
 pub fn gyroid(p: Vec3x8, scale: f32x8, thickness: f32x8) -> f32x8 {
     let p = p / scale;
-    (p.map(|c| c.sin()).dot(Vec3x8::new(p.z, p.x, p.y).map(|c| c.cos())).abs() * scale - thickness) * 0.6
+    (p.map(|c| c.sin())
+        .dot(Vec3x8::new(p.z, p.x, p.y).map(|c| c.cos()))
+        .abs()
+        * scale
+        - thickness)
+        * 0.6
 }
 
 // float sdf_schwarzP(vec3 p, float scale, float thickness) {

@@ -1,4 +1,4 @@
-use spirv_std::glam::Vec3;
+use glam::Vec3;
 use crate::{
     inst::{Inst, Op},
     sdf,

@@ -1,5 +1,5 @@
-use spirv_std::glam::{UVec4, Vec4Swizzles as _};
 use core::mem;
+use glam::UVec4;
 
 #[repr(u32)]
 pub enum Op {
@@ -15,14 +15,14 @@ pub enum Op {
     SmoothUnion = 4,
     SmoothIntersection = 5,
     SmoothSubtraction = 6,
-    
+
     // Shapes
     // Every shape has the index of an structure containing an inverse translate/rotate 3x4 matrix
     // and the scale in the second 32 bits.
     Sphere = 7, // The radius is stored in the 3rd 32 bits
 
     RectangularPrism = 8, // store the side lengths somehow
-    // ...
+                          // ...
 }
 
 #[derive(Copy, Clone)]

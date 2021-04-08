@@ -29,7 +29,7 @@ pub enum Shape {
     Sphere = 7, // The radius is stored in the 3rd 32 bits
 
     RectangularPrism = 8, // store the side lengths somehow
-    // ...
+                          // ...
 }
 
 /// The opcode is zero for this.

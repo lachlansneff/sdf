@@ -166,7 +166,6 @@ impl CsgTree {
             }),
         }
     }
-
 }
 
 impl fmt::Display for CsgTree {

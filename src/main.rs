@@ -13,7 +13,6 @@ mod sdf;
 mod tree;
 
 async fn run(event_loop: EventLoop<()>, window: Window) -> ! {
-    let mut size = window.inner_size();
     let instance = wgpu::Instance::new(wgpu::BackendBit::all());
     let surface = unsafe { instance.create_surface(&window) };
     let adapter = instance
@@ -30,23 +29,27 @@ async fn run(event_loop: EventLoop<()>, window: Window) -> ! {
         .request_device(
             &wgpu::DeviceDescriptor {
                 label: None,
-                features: wgpu::Features::empty(),
-                limits: wgpu::Limits::default(),
+                features: wgpu::Features::PUSH_CONSTANTS,
+                limits: wgpu::Limits {
+                    max_push_constant_size: 112,
+                    ..Default::default()
+                },
             },
             None,
         )
         .await
         .expect("Failed to create device");
 
-    let swapchain_format = adapter.get_swap_chain_preferred_format(&surface);
+    let swapchain_format = adapter.get_swap_chain_preferred_format(&surface).unwrap();
+    let initial_size = window.inner_size();
 
-    let sdf_renderer = sdf::SDFRender::new(&device, swapchain_format);
+    let mut sdf_renderer = sdf::SDFRender::new(&device, initial_size, swapchain_format);
 
     let mut sc_desc = wgpu::SwapChainDescriptor {
         usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
         format: swapchain_format,
-        width: size.width,
-        height: size.height,
+        width: initial_size.width,
+        height: initial_size.height,
         present_mode: wgpu::PresentMode::Mailbox,
     };
 
@@ -56,8 +59,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) -> ! {
     let light = Vec3::new(10.0, 30.0, 30.0);
     let fov = 45.0;
 
-    camera.resize(size, fov, 0.1);
-    sdf_renderer.write_uniforms(&queue, &camera, light, size, fov);
+    camera.resize(initial_size, fov, 0.1);
+    sdf_renderer.set_camera(&camera, light, fov);
 
     let csg = CsgTree::new_example();
     print!("{}", csg);
@@ -77,20 +80,20 @@ async fn run(event_loop: EventLoop<()>, window: Window) -> ! {
                 event: WindowEvent::Resized(new_size),
                 ..
             } => {
-                size = new_size;
                 // Recreate the swap chain with the new size
                 sc_desc.width = new_size.width;
                 sc_desc.height = new_size.height;
                 swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
                 camera.resize(new_size, fov, 0.1);
-                sdf_renderer.write_uniforms(&queue, &camera, light, new_size, fov);
+                sdf_renderer.resize(&device, new_size);
+                sdf_renderer.set_camera(&camera, light, fov);
             }
             Event::MainEventsCleared => {
                 window.request_redraw();
             }
             Event::RedrawRequested(_) => {
-                sdf_renderer.write_uniforms(&queue, &camera, light, size, fov);
+                sdf_renderer.set_camera(&camera, light, fov);
 
                 let frame = swap_chain
                     .get_current_frame()
@@ -98,21 +101,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) -> ! {
                     .output;
                 let mut encoder =
                     device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-                {
-                    let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                        label: None,
-                        color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                            attachment: &frame.view,
-                            resolve_target: None,
-                            ops: wgpu::Operations {
-                                load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                                store: true,
-                            },
-                        }],
-                        depth_stencil_attachment: None,
-                    });
-                    sdf_renderer.render(&mut rpass);
-                }
+
+                sdf_renderer.render(&frame.view, &mut encoder);
 
                 queue.submit(Some(encoder.finish()));
             }

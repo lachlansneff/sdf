@@ -1,6 +1,11 @@
 use shaderc;
 use spirv_builder::SpirvBuilder;
-use std::{env, error::Error, fs, io, path::{Path, PathBuf}};
+use std::{
+    env,
+    error::Error,
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 fn visit_files(dir: &Path, f: &mut dyn FnMut(&Path) -> io::Result<()>) -> io::Result<()> {
     if dir.is_dir() {
@@ -68,9 +73,7 @@ fn compile_glsl_shaders() -> io::Result<()> {
 
 fn compile_rust_shaders() -> Result<(), Box<dyn Error>> {
     fn build_shader(path: &str) -> Result<(), Box<dyn Error>> {
-        SpirvBuilder::new(path)
-            .spirv_version(1, 0)
-            .build()?;
+        SpirvBuilder::new(path).spirv_version(1, 0).build()?;
         Ok(())
     }
 

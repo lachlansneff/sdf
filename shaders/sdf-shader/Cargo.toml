@@ -8,5 +8,5 @@ edition = "2018"
 crate-type = ["dylib"]
 
 [dependencies]
-spirv-std-macros = { git = "https://github.com/EmbarkStudios/rust-gpu.git", branch = "main" }
-spirv-std = { git = "https://github.com/EmbarkStudios/rust-gpu.git", branch = "main" }
+spirv-std = { version = "0.4.0-alpha.1", features = ["const-generics"] }
+glam = { version = "0.13", default-features = false, features = ["libm", "scalar-math"] }
