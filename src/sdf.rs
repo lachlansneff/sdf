@@ -1,6 +1,6 @@
 use core::slice;
 use std::mem;
-use ultraviolet::{Mat4, UVec2, Vec2, Vec3};
+use ultraviolet::{Mat4, UVec2, Vec3};
 use winit::dpi::PhysicalSize;
 
 use crate::camera::Camera;
@@ -23,7 +23,7 @@ struct ViewParams {
     _pad0: Pad<4>,
     light: Vec3,
     _pad1: Pad<4>,
-    resolution: Vec2,
+    resolution: UVec2,
     z_depth: f32,
     _pad2: Pad<4>,
 }
@@ -99,17 +99,12 @@ impl SDFRender {
     }
 
     pub fn set_camera(&mut self, camera: &dyn Camera, light: Vec3, fov: f32) {
-        let eye = camera.eye();
-        let matrix = camera.matrix();
-        let resolution: Vec2 =
-            Vec2::new(self.resolution.width as f32, self.resolution.height as f32);
-
         self.view_params = ViewParams {
-            matrix: matrix.transposed(),
-            eye,
-            resolution,
+            matrix: camera.matrix().transposed(),
+            eye: camera.eye(),
+            resolution: UVec2::new(self.resolution.width, self.resolution.height),
             light,
-            z_depth: resolution.y / (fov.to_radians() / 2.0).tan(),
+            z_depth: self.resolution.height as f32 / (fov.to_radians() / 2.0).tan(),
             ..Default::default()
         };
     }

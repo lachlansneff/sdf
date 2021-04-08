@@ -14,18 +14,18 @@ use crate::extra::VectorN;
 ///
 /// This is automatically set up for cartesian coordinates.
 #[derive(Default, Clone, Copy)]
-pub struct DualVec3 {
-    pub x: Dual,
-    pub y: Dual,
-    pub z: Dual,
+pub struct Deriv3 {
+    pub x: Deriv,
+    pub y: Deriv,
+    pub z: Deriv,
 }
 
-impl DualVec3 {
+impl Deriv3 {
     pub fn new(v: Vec3) -> Self {
         let mut this = Self {
-            x: Dual::new(v.x),
-            y: Dual::new(v.y),
-            z: Dual::new(v.z),
+            x: Deriv::new(v.x),
+            y: Deriv::new(v.y),
+            z: Deriv::new(v.z),
         };
         // Set up for cartesian coordinates.
         this.x.d.x = 1.0;
@@ -43,7 +43,7 @@ impl DualVec3 {
         Self::new(Vec3::ONE)
     }
 
-    pub fn dot(self, other: Self) -> Dual {
+    pub fn dot(self, other: Self) -> Deriv {
         self.x * other.x + self.y * other.y + self.z + other.z
     }
 
@@ -71,12 +71,12 @@ impl DualVec3 {
         }
     }
 
-    pub fn length(self) -> Dual {
+    pub fn length(self) -> Deriv {
         ((self.x * self.x) + (self.y * self.y) + (self.z * self.z)).sqrt()
     }
 }
 
-impl VectorN for DualVec3 {
+impl VectorN for Deriv3 {
     fn sin(self) -> Self {
         Self {
             x: self.x.sin(),
@@ -94,7 +94,7 @@ impl VectorN for DualVec3 {
     }
 }
 
-impl Add for DualVec3 {
+impl Add for Deriv3 {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
@@ -106,7 +106,7 @@ impl Add for DualVec3 {
     }
 }
 
-impl Add<Vec3> for DualVec3 {
+impl Add<Vec3> for Deriv3 {
     type Output = Self;
 
     fn add(self, rhs: Vec3) -> Self {
@@ -114,7 +114,7 @@ impl Add<Vec3> for DualVec3 {
     }
 }
 
-impl Add<f32> for DualVec3 {
+impl Add<f32> for Deriv3 {
     type Output = Self;
 
     fn add(self, rhs: f32) -> Self {
@@ -122,7 +122,7 @@ impl Add<f32> for DualVec3 {
     }
 }
 
-impl Sub for DualVec3 {
+impl Sub for Deriv3 {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
@@ -134,7 +134,7 @@ impl Sub for DualVec3 {
     }
 }
 
-impl Sub<Vec3> for DualVec3 {
+impl Sub<Vec3> for Deriv3 {
     type Output = Self;
 
     fn sub(self, rhs: Vec3) -> Self {
@@ -142,7 +142,7 @@ impl Sub<Vec3> for DualVec3 {
     }
 }
 
-impl Sub<f32> for DualVec3 {
+impl Sub<f32> for Deriv3 {
     type Output = Self;
 
     fn sub(self, rhs: f32) -> Self {
@@ -150,7 +150,7 @@ impl Sub<f32> for DualVec3 {
     }
 }
 
-impl Mul for DualVec3 {
+impl Mul for Deriv3 {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
@@ -162,7 +162,7 @@ impl Mul for DualVec3 {
     }
 }
 
-impl Mul<Vec3> for DualVec3 {
+impl Mul<Vec3> for Deriv3 {
     type Output = Self;
 
     fn mul(self, rhs: Vec3) -> Self {
@@ -170,7 +170,7 @@ impl Mul<Vec3> for DualVec3 {
     }
 }
 
-impl Mul<f32> for DualVec3 {
+impl Mul<f32> for Deriv3 {
     type Output = Self;
 
     fn mul(self, rhs: f32) -> Self {
@@ -178,7 +178,7 @@ impl Mul<f32> for DualVec3 {
     }
 }
 
-impl Div for DualVec3 {
+impl Div for Deriv3 {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self {
@@ -190,7 +190,7 @@ impl Div for DualVec3 {
     }
 }
 
-impl Div<Vec3> for DualVec3 {
+impl Div<Vec3> for Deriv3 {
     type Output = Self;
 
     fn div(self, rhs: Vec3) -> Self {
@@ -198,7 +198,7 @@ impl Div<Vec3> for DualVec3 {
     }
 }
 
-impl Div<f32> for DualVec3 {
+impl Div<f32> for Deriv3 {
     type Output = Self;
 
     fn div(self, rhs: f32) -> Self {
@@ -206,7 +206,7 @@ impl Div<f32> for DualVec3 {
     }
 }
 
-impl Neg for DualVec3 {
+impl Neg for Deriv3 {
     type Output = Self;
 
     fn neg(self) -> Self {
@@ -221,18 +221,18 @@ impl Neg for DualVec3 {
 /// A dual number, defined as v + _d_ε", but with a
 /// derivative in ℝ³
 #[derive(Default, Clone, Copy)]
-pub struct Dual {
+pub struct Deriv {
     d: Vec3,
     v: f32,
 }
 
-impl Dual {
+impl Deriv {
     pub const fn new(v: f32) -> Self {
         Self::new_d(v, Vec3::ZERO)
     }
 
     const fn new_d(v: f32, d: Vec3) -> Self {
-        Dual { v, d }
+        Deriv { v, d }
     }
 
     pub fn derivatives(self) -> Vec3 {
@@ -279,7 +279,7 @@ impl Dual {
     }
 }
 
-impl Add for Dual {
+impl Add for Deriv {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
@@ -290,7 +290,7 @@ impl Add for Dual {
     }
 }
 
-impl Add<f32> for Dual {
+impl Add<f32> for Deriv {
     type Output = Self;
 
     fn add(self, rhs: f32) -> Self {
@@ -301,7 +301,7 @@ impl Add<f32> for Dual {
     }
 }
 
-impl Sub for Dual {
+impl Sub for Deriv {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
@@ -312,7 +312,7 @@ impl Sub for Dual {
     }
 }
 
-impl Sub<f32> for Dual {
+impl Sub<f32> for Deriv {
     type Output = Self;
 
     fn sub(self, rhs: f32) -> Self {
@@ -323,7 +323,7 @@ impl Sub<f32> for Dual {
     }
 }
 
-impl Mul for Dual {
+impl Mul for Deriv {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
@@ -334,7 +334,7 @@ impl Mul for Dual {
     }
 }
 
-impl Mul<f32> for Dual {
+impl Mul<f32> for Deriv {
     type Output = Self;
 
     fn mul(self, rhs: f32) -> Self {
@@ -345,7 +345,7 @@ impl Mul<f32> for Dual {
     }
 }
 
-impl Div for Dual {
+impl Div for Deriv {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self {
@@ -356,7 +356,7 @@ impl Div for Dual {
     }
 }
 
-impl Div<f32> for Dual {
+impl Div<f32> for Deriv {
     type Output = Self;
 
     fn div(self, rhs: f32) -> Self {
@@ -367,7 +367,7 @@ impl Div<f32> for Dual {
     }
 }
 
-impl Neg for Dual {
+impl Neg for Deriv {
     type Output = Self;
 
     fn neg(self) -> Self {

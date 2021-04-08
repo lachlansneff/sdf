@@ -4,7 +4,7 @@ use spirv_std::macros::spirv;
 use spirv_std::StorageImage2d;
 
 use crate::{
-    diff::{Dual, DualVec3},
+    deriv::{Deriv, Deriv3},
     sdf, ViewParams,
 };
 
@@ -18,8 +18,7 @@ pub fn render_sdf_final(
 ) {
     let texture_coords = global_invocation_id.xy();
 
-    if texture_coords.x as f32 >= view_params.resolution.x
-        || texture_coords.y as f32 >= view_params.resolution.y
+    if texture_coords.x >= view_params.resolution.x || texture_coords.y >= view_params.resolution.y
     {
         // We're off the edge, so just return early.
         // This might result in some iffy performance around the edges, but there's
@@ -54,16 +53,16 @@ fn sdf(p: Vec3) -> f32 {
     )
 }
 
-fn sdf_diff(p: Vec3) -> Dual {
-    let p = DualVec3::new(p);
-    sdf::diff::intersect(
-        sdf::diff::schwarz_p(p, 10.0, 0.03),
-        sdf::diff::rectangular_prism(p, vec3(1.0, 1.0, 1.0)),
+fn sdf_diff(p: Vec3) -> Deriv {
+    let p = Deriv3::new(p);
+    sdf::deriv::intersect(
+        sdf::deriv::schwarz_p(p, 10.0, 0.03),
+        sdf::deriv::rectangular_prism(p, vec3(1.0, 1.0, 1.0)),
     )
 }
 
 fn compute_ray_direction(params: &ViewParams, texture_coords: UVec2) -> Vec3 {
-    let xy = texture_coords.as_f32() - params.resolution / 2.0;
+    let xy = texture_coords.as_f32() - params.resolution.as_f32() / 2.0;
     (params.matrix * xy.extend(-params.z_depth).normalize().extend(0.0)).xyz()
 }
 
