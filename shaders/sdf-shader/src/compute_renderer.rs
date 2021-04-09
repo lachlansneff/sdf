@@ -1,36 +1,115 @@
-use glam::{vec3, UVec2, UVec3, Vec3, Vec3Swizzles, Vec4Swizzles};
-use spirv_std::StorageImage2d;
+use glam::{Mat4, UVec2, UVec3, Vec3, Vec3Swizzles, Vec4Swizzles, uvec2, vec3};
+use spirv_std::{StorageImage2d, scalar::Scalar};
 
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
 use crate::{
     deriv::{Deriv, Deriv3},
-    grid::Grid,
-    sdf, ViewParams,
+    sdf,
 };
 
+#[repr(C)]
+pub struct ConeTracingParams {
+    view_mat: Mat4,
+    eye: Vec3,
+    resolution: UVec2,
+    neg_z_depth: f32,
+    cone_multiplier: f32,
+}
+
+#[spirv_std_macros::gpu_only]
+unsafe fn slice_set_unchecked(slice: &mut [f32], index: usize, item: f32) {
+    asm! {
+        "%runtime_array_ty = OpTypeRuntimeArray typeof{item}",
+        "%runtime_array_ptr_ty = OpTypePointer Generic %runtime_array_ty",
+        "%0 = OpConstant typeof{idx} 0",
+        "%runtime_array_ptr = OpAccessChain %runtime_array_ptr_ty {slice_ref} %0",
+        "%runtime_array = OpLoad _ %runtime_array_ptr",
+        "%item_ptr = OpAccessChain typeof{item} %runtime_array {idx}",
+        "OpStore %item_ptr {item}",
+        slice_ref = in(reg) &slice,
+        idx = in(reg) index as isize,
+        item = in(reg) item,
+    }
+}
+
+/// Runs on 64 pixel x 64 pixel tiles.
 #[spirv(compute(threads(8, 8, 1)))]
-pub fn sphere_push(
+pub fn prerender_cone_trace(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
-    #[spirv(push_constant)] view_params: &ViewParams,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] farthest_grid_data: &mut [f32],
+    #[spirv(push_constant)] params: &ConeTracingParams,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] starting_depths: &mut [f32],
 ) {
+    let tile = global_invocation_id.xy();
     let grid_size = num_workgroups.xy() * 8;
-    let mut grid = Grid::new(grid_size.x as usize, farthest_grid_data);
+    let tile_center = tile * grid_size + uvec2(32, 32);
+
+    let ray_dir = compute_ray_direction(
+        params.resolution,
+        params.neg_z_depth,
+        params.view_mat,
+        tile_center,
+    );
+
+    // let idx = tile.y as usize * grid_size.y as usize + tile.x as usize;
+    // starting_depths[idx] = cone_march(params.eye, ray_dir, params.cone_multiplier, sdf);
+
+    // Normally, I'd just use index notation (and deal with the bounds-check), but
+    // getting the length of a runtime array seems to be broken on metal because of
+    // an interaction between spirv-cross and gfx.
+    unsafe {
+        slice_set_unchecked(
+            starting_depths,
+            tile.y as usize * grid_size.y as usize + tile.x as usize,
+            cone_march(params.eye, ray_dir, params.cone_multiplier, sdf)
+        );
+    }
 }
+
+fn cone_march(origin: Vec3, ray_dir: Vec3, cone_multiplier: f32, sdf: impl Fn(Vec3) -> f32) -> f32 {
+    const MAX_STEPS: usize = 64;
+    const EPSILON: f32 = 0.001;
+
+    let mut t = 0.0;
+
+    for _ in 0..MAX_STEPS {
+        let p = origin + ray_dir * t;
+        let d = sdf(p);
+
+        let x = (t + d) * cone_multiplier;
+        if x - t <= EPSILON {
+            return t;
+        }
+
+        t = x;
+    }
+
+    -1.0
+}
+
+#[repr(C)]
+pub struct RenderParams {
+    view_mat: Mat4,
+    eye: Vec3,
+    light_pos: Vec3,
+    resolution: UVec2,
+    neg_z_depth: f32,
+}
+
+static_assertions::assert_eq_size!(RenderParams, [u8; 112]);
 
 #[spirv(compute(threads(8, 8, 1)))]
 pub fn render_sdf_final(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
-    #[spirv(push_constant)] view_params: &ViewParams,
+    #[spirv(push_constant)] params: &RenderParams,
     // #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] tape: &[Inst],
     #[spirv(descriptor_set = 0, binding = 1)] output_texture: &StorageImage2d,
 ) {
     let texture_coords = global_invocation_id.xy();
 
-    if texture_coords.x >= view_params.resolution.x || texture_coords.y >= view_params.resolution.y
+    if texture_coords.x >= params.resolution.x || texture_coords.y >= params.resolution.y
     {
         // We're off the edge, so just return early.
         // This might result in some iffy performance around the edges, but there's
@@ -38,8 +117,13 @@ pub fn render_sdf_final(
         return;
     }
 
-    let ray_dir = compute_ray_direction(&view_params, texture_coords);
-    let intersection = sphere_march(view_params.eye, ray_dir, sdf);
+    let ray_dir = compute_ray_direction(
+        params.resolution,
+        params.neg_z_depth,
+        params.view_mat,
+        texture_coords,
+    );
+    let intersection = sphere_march(params.eye, ray_dir, sdf);
 
     let color = if intersection.depth_ratio > 0.0 {
         let color = vec3(171.0 / 255.0, 146.0 / 255.0, 103.0 / 255.0);
@@ -47,7 +131,7 @@ pub fn render_sdf_final(
         let ao = 1.0 - intersection.depth_ratio;
 
         let normals = sdf_diff(intersection.hit).derivatives();
-        let dif = normals.dot(view_params.light_pos.normalize());
+        let dif = normals.dot(params.light_pos.normalize());
         color.lerp(shade, dif) * ao
     } else {
         // Background color
@@ -74,9 +158,14 @@ fn sdf_diff(p: Vec3) -> Deriv {
     )
 }
 
-fn compute_ray_direction(params: &ViewParams, texture_coords: UVec2) -> Vec3 {
-    let xy = texture_coords.as_f32() - params.resolution.as_f32() / 2.0;
-    (params.matrix * xy.extend(-params.z_depth).normalize().extend(0.0)).xyz()
+fn compute_ray_direction(
+    resolution: UVec2,
+    neg_z_depth: f32,
+    view_mat: Mat4,
+    texture_coords: UVec2,
+) -> Vec3 {
+    let xy = texture_coords.as_f32() - resolution.as_f32() / 2.0;
+    (view_mat * xy.extend(neg_z_depth).normalize().extend(0.0)).xyz()
 }
 
 struct Intersection {

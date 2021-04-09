@@ -12,7 +12,6 @@ pub fn vertex(#[spirv(vertex_index)] vertex_id: i32, #[spirv(position)] output: 
 #[spirv(fragment)]
 pub fn fragment(
     #[spirv(frag_coord)] frag_coord: Vec4,
-
     #[spirv(push_constant)] resolution: &UVec2,
     #[spirv(descriptor_set = 0, binding = 0)] input_texture: &Image2d,
     #[spirv(descriptor_set = 0, binding = 1)] sampler: &Sampler,

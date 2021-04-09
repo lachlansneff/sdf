@@ -60,7 +60,6 @@ async fn run(event_loop: EventLoop<()>, window: Window) -> ! {
     let fov = 45.0;
 
     camera.resize(initial_size, fov, 0.1);
-    sdf_renderer.set_camera(&camera, light, fov);
 
     let csg = CsgTree::new_example();
     print!("{}", csg);
@@ -87,14 +86,11 @@ async fn run(event_loop: EventLoop<()>, window: Window) -> ! {
 
                 camera.resize(new_size, fov, 0.1);
                 sdf_renderer.resize(&device, new_size);
-                sdf_renderer.set_camera(&camera, light, fov);
             }
             Event::MainEventsCleared => {
                 window.request_redraw();
             }
             Event::RedrawRequested(_) => {
-                sdf_renderer.set_camera(&camera, light, fov);
-
                 let frame = swap_chain
                     .get_current_frame()
                     .expect("Failed to acquire next swap chain texture")
@@ -102,7 +98,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) -> ! {
                 let mut encoder =
                     device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-                sdf_renderer.render(&frame.view, &mut encoder);
+                sdf_renderer.render(&camera, light, fov, &frame.view, &mut encoder);
 
                 queue.submit(Some(encoder.finish()));
             }
