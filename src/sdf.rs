@@ -35,8 +35,10 @@ struct ConeTracingParams {
     eye: Vec3,
     _pad0: Pad<4>,
     resolution: UVec2,
+    grid_size: UVec2,
     neg_z_depth: f32,
     cone_multiplier: f32,
+    _pad1: Pad<8>,
 }
 
 pub struct SDFRender {
@@ -143,6 +145,7 @@ impl SDFRender {
                 view_mat,
                 eye,
                 resolution,
+                grid_size: resolution.map(|t| t + 64 - 1) / 64,
                 neg_z_depth,
                 cone_multiplier: {
                     let vertical_fov = field_of_view * (self.resolution.height as f32 / self.resolution.width as f32);
@@ -324,6 +327,7 @@ fn create_texture(device: &wgpu::Device, size: PhysicalSize<u32>) -> wgpu::Textu
 
 fn create_starting_depth_buffer(device: &wgpu::Device, resolution: PhysicalSize<u32>) -> wgpu::Buffer {
     let length = (resolution.width as usize * resolution.height as usize + 64 * 64 - 1) / (64 * 64);
+    println!("length: {}", length);
 
     device.create_buffer(&wgpu::BufferDescriptor {
         label: None,

@@ -13,6 +13,7 @@ pub struct ConeTracingParams {
     view_mat: Mat4,
     eye: Vec3,
     resolution: UVec2,
+    grid_size: UVec2,
     neg_z_depth: f32,
     cone_multiplier: f32,
 }
@@ -20,12 +21,18 @@ pub struct ConeTracingParams {
 /// Runs on 64 pixel x 64 pixel tiles.
 #[spirv(compute(threads(8, 8, 1)))]
 pub fn prerender_cone_trace(
-    #[spirv(global_invocation_id)] global_invocation_id: UVec3,
+    #[spirv(global_invocation_id)] tile: UVec2,
     #[spirv(num_workgroups)] num_workgroups: UVec3,
     #[spirv(push_constant)] params: &ConeTracingParams,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] starting_depths: &mut [f32],
 ) {
-    let tile = global_invocation_id.xy();
+    if tile.x >= params.grid_size.x || tile.y >= params.grid_size.y {
+        // If we're off the edge, just return.
+        // This will happen when the resolution width or height aren't multiples
+        // of 64 * 8.
+        return;
+    }
+
     let grid_size = num_workgroups.xy() * 8;
     let tile_center = tile * grid_size + uvec2(32, 32);
 
