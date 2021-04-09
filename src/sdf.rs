@@ -64,23 +64,21 @@ impl SDFRender {
         initial_size: PhysicalSize<u32>,
         swapchain_format: wgpu::TextureFormat,
     ) -> Self {
-        println!("loading \"{}\"", env!("sdf_shader.spv"));
-        let shader = device.create_shader_module(&wgpu::include_spirv!(env!("sdf_shader.spv")));
 
         let linear_sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
         let texture = create_texture(device, initial_size);
         let starting_depth_buffer = create_starting_depth_buffer(device, initial_size);
 
-        let (cone_trace_bgl, cone_trace_pipeline) = create_cone_trace_components(device, &shader);
+        let (cone_trace_bgl, cone_trace_pipeline) = create_cone_trace_components(device);
         let cone_trace_bg = create_cone_trace_bind_group(device, &cone_trace_bgl, &starting_depth_buffer);
 
         let (sdf_final_bgl, sdf_final_pipeline) =
-            create_sdf_final_components(device, &shader);
+            create_sdf_final_components(device);
         let sdf_final_bg =
             create_sdf_final_bind_group(device, &texture, &sdf_final_bgl);
 
         let (blit_bgl, blit_pipeline) =
-            create_blit_components(device, &shader, swapchain_format);
+            create_blit_components(device, swapchain_format);
         let blit_bg =
             create_blit_bind_group(device, &texture, &blit_bgl, &linear_sampler);
 
@@ -246,7 +244,6 @@ fn create_blit_bind_group(
 
 fn create_blit_components(
     device: &wgpu::Device,
-    shader: &wgpu::ShaderModule,
     texture_format: wgpu::TextureFormat,
 ) -> (wgpu::BindGroupLayout, wgpu::RenderPipeline) {
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -283,16 +280,19 @@ fn create_blit_components(
         }],
     });
 
+    let vertex_shader = device.create_shader_module(&wgpu::include_spirv!(env!("spirv://blit::vertex")));
+    let fragment_shader = device.create_shader_module(&wgpu::include_spirv!(env!("spirv://blit::fragment")));
+
     let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: None,
         layout: Some(&pipeline_layout),
         vertex: wgpu::VertexState {
-            module: &shader,
+            module: &vertex_shader,
             entry_point: "blit::vertex",
             buffers: &[],
         },
         fragment: Some(wgpu::FragmentState {
-            module: &shader,
+            module: &fragment_shader,
             entry_point: "blit::fragment",
             targets: &[texture_format.into()],
         }),
@@ -335,7 +335,6 @@ fn create_starting_depth_buffer(device: &wgpu::Device, resolution: PhysicalSize<
 
 fn create_cone_trace_components(
     device: &wgpu::Device,
-    shader: &wgpu::ShaderModule,
 ) -> (wgpu::BindGroupLayout, wgpu::ComputePipeline) {
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: None,
@@ -362,12 +361,16 @@ fn create_cone_trace_components(
         }],
     });
 
+    let shader = device.create_shader_module(&wgpu::include_spirv!(env!("spirv://compute_renderer::prerender_cone_trace")));
+
+    println!("creating cone_trace compute pipeline");
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: None,
         layout: Some(&pipeline_layout),
-        module: shader,
+        module: &shader,
         entry_point: "compute_renderer::prerender_cone_trace",
     });
+    println!("created cone_trace compute pipeline");
 
     (bind_group_layout, pipeline)
 }
@@ -395,7 +398,6 @@ fn create_cone_trace_bind_group(
 
 fn create_sdf_final_components(
     device: &wgpu::Device,
-    shader: &wgpu::ShaderModule,
 ) -> (wgpu::BindGroupLayout, wgpu::ComputePipeline) {
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: None,
@@ -411,7 +413,7 @@ fn create_sdf_final_components(
             //     count: None,
             // },
             wgpu::BindGroupLayoutEntry {
-                binding: 1,
+                binding: 0,
                 visibility: wgpu::ShaderStage::COMPUTE,
                 ty: wgpu::BindingType::StorageTexture {
                     access: wgpu::StorageTextureAccess::WriteOnly,
@@ -432,12 +434,16 @@ fn create_sdf_final_components(
         }],
     });
 
+    let shader = device.create_shader_module(&wgpu::include_spirv!(env!("spirv://compute_renderer::render_sdf_final")));
+
+    println!("creating sdf_final compute pipeline");
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: None,
         layout: Some(&pipeline_layout),
-        module: shader,
+        module: &shader,
         entry_point: "compute_renderer::render_sdf_final",
     });
+    println!("created sdf_final compute pipeline");
 
     (bind_group_layout, pipeline)
 }
@@ -460,7 +466,7 @@ fn create_sdf_final_bind_group(
             //     },
             // },
             wgpu::BindGroupEntry {
-                binding: 1,
+                binding: 0,
                 resource: wgpu::BindingResource::TextureView(texture),
             },
         ],

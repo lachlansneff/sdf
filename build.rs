@@ -73,7 +73,15 @@ fn compile_glsl_shaders() -> io::Result<()> {
 
 fn compile_rust_shaders() -> Result<(), Box<dyn Error>> {
     fn build_shader(path: &str) -> Result<(), Box<dyn Error>> {
-        SpirvBuilder::new(path).spirv_version(1, 0).build()?;
+        let results = SpirvBuilder::new(path)
+            .print_metadata(false)
+            .spirv_version(1, 0)
+            .build_multimodule()?;
+
+        for (entry_point, path) in results {
+            println!("cargo:rustc-env={}={}", format!("spirv://{}", entry_point), path.display());
+        }
+
         Ok(())
     }
 

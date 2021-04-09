@@ -1,5 +1,4 @@
 use glam::{Mat4, UVec2, UVec3, Vec3, Vec3Swizzles, Vec4Swizzles, uvec2, vec3};
-use spirv_std::{StorageImage2d, scalar::Scalar};
 
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
@@ -16,22 +15,6 @@ pub struct ConeTracingParams {
     resolution: UVec2,
     neg_z_depth: f32,
     cone_multiplier: f32,
-}
-
-#[spirv_std_macros::gpu_only]
-unsafe fn slice_set_unchecked(slice: &mut [f32], index: usize, item: f32) {
-    asm! {
-        "%runtime_array_ty = OpTypeRuntimeArray typeof{item}",
-        "%runtime_array_ptr_ty = OpTypePointer Generic %runtime_array_ty",
-        "%0 = OpConstant typeof{idx} 0",
-        "%runtime_array_ptr = OpAccessChain %runtime_array_ptr_ty {slice_ref} %0",
-        "%runtime_array = OpLoad _ %runtime_array_ptr",
-        "%item_ptr = OpAccessChain typeof{item} %runtime_array {idx}",
-        "OpStore %item_ptr {item}",
-        slice_ref = in(reg) &slice,
-        idx = in(reg) index as isize,
-        item = in(reg) item,
-    }
 }
 
 /// Runs on 64 pixel x 64 pixel tiles.
@@ -53,19 +36,8 @@ pub fn prerender_cone_trace(
         tile_center,
     );
 
-    // let idx = tile.y as usize * grid_size.y as usize + tile.x as usize;
-    // starting_depths[idx] = cone_march(params.eye, ray_dir, params.cone_multiplier, sdf);
-
-    // Normally, I'd just use index notation (and deal with the bounds-check), but
-    // getting the length of a runtime array seems to be broken on metal because of
-    // an interaction between spirv-cross and gfx.
-    unsafe {
-        slice_set_unchecked(
-            starting_depths,
-            tile.y as usize * grid_size.y as usize + tile.x as usize,
-            cone_march(params.eye, ray_dir, params.cone_multiplier, sdf)
-        );
-    }
+    let idx = tile.y as usize * grid_size.x as usize + tile.x as usize;
+    starting_depths[idx] = cone_march(params.eye, ray_dir, params.cone_multiplier, sdf);
 }
 
 fn cone_march(origin: Vec3, ray_dir: Vec3, cone_multiplier: f32, sdf: impl Fn(Vec3) -> f32) -> f32 {
@@ -98,14 +70,14 @@ pub struct RenderParams {
     neg_z_depth: f32,
 }
 
-static_assertions::assert_eq_size!(RenderParams, [u8; 112]);
+// static_assertions::assert_eq_size!(RenderParams, [u8; 112]);
 
 #[spirv(compute(threads(8, 8, 1)))]
 pub fn render_sdf_final(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
     #[spirv(push_constant)] params: &RenderParams,
     // #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] tape: &[Inst],
-    #[spirv(descriptor_set = 0, binding = 1)] output_texture: &StorageImage2d,
+    #[spirv(descriptor_set = 0, binding = 0)] output_texture: &CustomStorageImage2d,
 ) {
     let texture_coords = global_invocation_id.xy();
 
@@ -199,5 +171,41 @@ fn sphere_march(origin: Vec3, ray_dir: Vec3, sdf: impl Fn(Vec3) -> f32) -> Inter
     Intersection {
         hit: Vec3::ZERO,
         depth_ratio: -1.0,
+    }
+}
+
+#[spirv(image_type(
+    // sampled_type is hardcoded to f32 for now
+    dim = "Dim2D",
+    depth = 0,
+    arrayed = 0,
+    multisampled = 0,
+    sampled = 2,
+    image_format = "R32f"
+))]
+#[derive(Copy, Clone)]
+pub struct CustomStorageImage2d {
+    _x: u32,
+}
+
+impl CustomStorageImage2d {
+    /// Write a texel to an image without a sampler.
+    #[spirv_std_macros::gpu_only]
+    pub unsafe fn write<I, const N: usize>(
+        &self,
+        coordinate: impl spirv_std::vector::Vector<I, 2>,
+        texels: impl spirv_std::vector::Vector<f32, N>,
+    ) where
+        I: spirv_std::integer::Integer,
+    {
+        asm! {
+            "%image = OpLoad _ {this}",
+            "%coordinate = OpLoad _ {coordinate}",
+            "%texels = OpLoad _ {texels}",
+            "OpImageWrite %image %coordinate %texels",
+            this = in(reg) self,
+            coordinate = in(reg) &coordinate,
+            texels = in(reg) &texels,
+        }
     }
 }
