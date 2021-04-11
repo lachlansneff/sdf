@@ -19,7 +19,7 @@ fn transform_deriv3_by_mat4(mat: &Mat4, a: Deriv3) -> Deriv3 {
 
 macro_rules! generate_interpreter {
     ($name:ident<$ty:ty>, $sdf_path:path, $p:expr, $reg_init:expr, $mat_transform:expr) => {
-        pub fn $name(tape: &[Inst], p: Vec3) -> $ty {
+        pub fn $name(tape: &[Inst], matrices: &[Mat4], p: Vec3) -> $ty {
             use $sdf_path as s;
             const REG_INIT: [$ty; 2] = $reg_init;
 

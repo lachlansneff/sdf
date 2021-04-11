@@ -105,14 +105,14 @@ pub fn render_sdf_final(
         texture_coords,
     );
 
-    let intersection = sphere_march(params.eye, ray_dir, |p| interpreter::sdf(tape, p));
+    let intersection = sphere_march(params.eye, ray_dir, |p| interpreter::sdf(tape, matrices, p));
 
     let color = if intersection.depth_ratio > 0.0 {
         let color = vec3(171.0 / 255.0, 146.0 / 255.0, 103.0 / 255.0);
         let shade = vec3(99.0 / 255.0, 84.0 / 255.0, 59.0 / 255.0);
         let ao = 1.0 - intersection.depth_ratio;
 
-        let normals = interpreter::sdf_deriv(tape, intersection.hit)
+        let normals = interpreter::sdf_deriv(tape, matrices, intersection.hit)
             .derivatives()
             .normalize()
             * 0.5
