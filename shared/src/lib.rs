@@ -3,3 +3,5 @@
 // #![feature(const_evaluatable_checked)]
 
 pub mod inst;
+pub mod interval;
+pub mod affine;
