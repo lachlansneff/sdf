@@ -2,7 +2,7 @@
 use spirv_std::num_traits::Float as _;
 
 use crate::extra::{Scalar, VectorN as _};
-use glam::{vec2, Vec2, Vec3, Vec3Swizzles};
+use glam::{vec2, vec3, Vec2, Vec3, Vec3Swizzles};
 
 pub fn sphere(p: Vec3, r: f32) -> f32 {
     p.length() - r
@@ -40,7 +40,7 @@ pub fn subtract(lhs: f32, rhs: f32) -> f32 {
     (-lhs).max(rhs)
 }
 
-pub fn union_smooth(lhs: f32, rhs: f32, k: f32) -> f32 {
+pub fn smooth_union(lhs: f32, rhs: f32, k: f32) -> f32 {
     let h = ((rhs - lhs) * 0.5 / k + 0.5).clamp(0.0, 1.0);
     rhs.lerp(lhs, h) - k * h * (1.0 - h)
 }

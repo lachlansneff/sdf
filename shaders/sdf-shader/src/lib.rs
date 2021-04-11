@@ -8,11 +8,9 @@
 // #![deny(warnings)]
 
 // mod arrayvec;
-mod extra;
-mod inst;
-// mod interpreter;
 pub mod blit;
 pub mod compute_renderer;
 mod deriv;
+mod extra;
+mod interpreter;
 mod sdf;
-

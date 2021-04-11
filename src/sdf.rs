@@ -1,9 +1,11 @@
 use core::slice;
 use std::mem;
-use ultraviolet::{Mat4, UVec2, Vec2, Vec3};
+use ultraviolet::{Mat4, UVec2, Vec3};
+use wgpu::util::{BufferInitDescriptor, DeviceExt as _};
 use winit::dpi::PhysicalSize;
 
 use crate::camera::Camera;
+use shared::inst::{Inst, RectangularPrism, Ret, SmoothUnion, Sphere};
 
 const STORAGE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
@@ -24,33 +26,37 @@ struct RenderParams {
     light: Vec3,
     _pad1: Pad<4>,
     resolution: UVec2,
-    neg_z_depth: f32,
-    _pad2: Pad<4>,
-}
-
-#[derive(Default)]
-#[repr(C)]
-struct ConeTracingParams {
-    view_mat: Mat4,
-    eye: Vec3,
-    _pad0: Pad<4>,
-    resolution: UVec2,
     grid_size: UVec2,
     neg_z_depth: f32,
-    cone_multiplier: f32,
-    _pad1: Pad<8>,
+    _pad2: Pad<12>,
 }
+
+static_assertions::assert_eq_size!(RenderParams, [u8; 128]);
+
+// #[derive(Default)]
+// #[repr(C)]
+// struct ConeTracingParams {
+//     view_mat: Mat4,
+//     eye: Vec3,
+//     _pad0: Pad<4>,
+//     resolution: UVec2,
+//     grid_size: UVec2,
+//     neg_z_depth: f32,
+//     cone_multiplier: f32,
+//     _pad1: Pad<8>,
+// }
 
 pub struct SDFRender {
     linear_sampler: wgpu::Sampler,
     texture: wgpu::TextureView,
     resolution: PhysicalSize<u32>,
-    starting_depth_buffer: wgpu::Buffer,
+    // starting_depth_buffer: wgpu::Buffer,
+    testing_tape: wgpu::Buffer,
+    matrices: wgpu::Buffer,
 
-    cone_trace_bgl: wgpu::BindGroupLayout,
-    cone_trace_bg: wgpu::BindGroup,
-    cone_trace_pipeline: wgpu::ComputePipeline,
-
+    // cone_trace_bgl: wgpu::BindGroupLayout,
+    // cone_trace_bg: wgpu::BindGroup,
+    // cone_trace_pipeline: wgpu::ComputePipeline,
     sdf_final_bgl: wgpu::BindGroupLayout,
     sdf_final_bg: wgpu::BindGroup,
     sdf_final_pipeline: wgpu::ComputePipeline,
@@ -66,34 +72,77 @@ impl SDFRender {
         initial_size: PhysicalSize<u32>,
         swapchain_format: wgpu::TextureFormat,
     ) -> Self {
-
         let linear_sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
         let texture = create_texture(device, initial_size);
-        let starting_depth_buffer = create_starting_depth_buffer(device, initial_size);
 
-        let (cone_trace_bgl, cone_trace_pipeline) = create_cone_trace_components(device);
-        let cone_trace_bg = create_cone_trace_bind_group(device, &cone_trace_bgl, &starting_depth_buffer);
+        let matrices = &[
+            Mat4::identity(),
+            Mat4::from_translation(Vec3::new(1.5, 0.0, 0.0)),
+        ];
 
-        let (sdf_final_bgl, sdf_final_pipeline) =
-            create_sdf_final_components(device);
+        let matrices = device.create_buffer_init(&BufferInitDescriptor {
+            label: None,
+            usage: wgpu::BufferUsage::STORAGE,
+            contents: unsafe {
+                slice::from_raw_parts(
+                    matrices.as_ptr() as *const u8,
+                    matrices.len() * mem::size_of::<Mat4>(),
+                )
+            },
+        });
+
+        let tape = &[
+            Inst::make(
+                0,
+                RectangularPrism {
+                    matrix_idx: 0,
+                    x: 1.0,
+                    y: 1.0,
+                    z: 1.0,
+                },
+            ),
+            // Inst::make(0, Sphere {
+            //     matrix_idx: 1,
+            //     radius: 0.7,
+            // }),
+            // Inst::make(0, SmoothUnion { k: 0.5 }),
+            Inst::make(0, Ret),
+        ];
+
+        let testing_tape = device.create_buffer_init(&BufferInitDescriptor {
+            label: None,
+            usage: wgpu::BufferUsage::STORAGE,
+            contents: unsafe {
+                slice::from_raw_parts(
+                    tape.as_ptr() as *const u8,
+                    tape.len() * mem::size_of::<Inst>(),
+                )
+            },
+        });
+
+        // let starting_depth_buffer = create_starting_depth_buffer(device, initial_size);
+
+        // let (cone_trace_bgl, cone_trace_pipeline) = create_cone_trace_components(device);
+        // let cone_trace_bg = create_cone_trace_bind_group(device, &cone_trace_bgl, &starting_depth_buffer);
+
+        let (sdf_final_bgl, sdf_final_pipeline) = create_sdf_final_components(device);
         let sdf_final_bg =
-            create_sdf_final_bind_group(device, &texture, &sdf_final_bgl);
+            create_sdf_final_bind_group(device, &sdf_final_bgl, &texture, &testing_tape, &matrices);
 
-        let (blit_bgl, blit_pipeline) =
-            create_blit_components(device, swapchain_format);
-        let blit_bg =
-            create_blit_bind_group(device, &texture, &blit_bgl, &linear_sampler);
+        let (blit_bgl, blit_pipeline) = create_blit_components(device, swapchain_format);
+        let blit_bg = create_blit_bind_group(device, &texture, &blit_bgl, &linear_sampler);
 
         Self {
             linear_sampler,
             texture,
             resolution: initial_size,
-            starting_depth_buffer,
+            // starting_depth_buffer,
+            testing_tape,
+            matrices,
 
-            cone_trace_bgl,
-            cone_trace_bg,
-            cone_trace_pipeline,
-
+            // cone_trace_bgl,
+            // cone_trace_bg,
+            // cone_trace_pipeline,
             sdf_final_bgl,
             sdf_final_bg,
             sdf_final_pipeline,
@@ -108,22 +157,24 @@ impl SDFRender {
         self.texture = create_texture(device, new_size);
         self.resolution = new_size;
 
-        self.starting_depth_buffer = create_starting_depth_buffer(device, self.resolution);
+        // self.starting_depth_buffer = create_starting_depth_buffer(device, self.resolution);
 
-        self.cone_trace_bg = create_cone_trace_bind_group(device, &self.cone_trace_bgl, &self.starting_depth_buffer);
+        // self.cone_trace_bg = create_cone_trace_bind_group(device, &self.cone_trace_bgl, &self.starting_depth_buffer);
 
-        self.sdf_final_bg =
-            create_sdf_final_bind_group(device, &self.texture, &self.sdf_final_bgl);
-
-        self.blit_bg = create_blit_bind_group(
+        self.sdf_final_bg = create_sdf_final_bind_group(
             device,
+            &self.sdf_final_bgl,
             &self.texture,
-            &self.blit_bgl,
-            &self.linear_sampler,
+            &self.testing_tape,
+            &self.matrices,
         );
+
+        self.blit_bg =
+            create_blit_bind_group(device, &self.texture, &self.blit_bgl, &self.linear_sampler);
     }
 
-    pub fn render(&self,
+    pub fn render(
+        &self,
         camera: &dyn Camera,
         light: Vec3,
         field_of_view: f32,
@@ -135,43 +186,44 @@ impl SDFRender {
         let eye = camera.eye();
         let resolution = UVec2::new(self.resolution.width, self.resolution.height);
         let neg_z_depth = -(self.resolution.width as f32 / (field_of_view / 2.0).tan());
+        let grid_size = resolution.map(|t| t + 64 - 1) / 64;
 
         {
             let mut cpass =
                 encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
 
-            // Prerender Cone Tracing
-            let cone_trace_params = ConeTracingParams {
-                view_mat,
-                eye,
-                resolution,
-                grid_size: resolution.map(|t| t + 64 - 1) / 64,
-                neg_z_depth,
-                cone_multiplier: {
-                    let vertical_fov = field_of_view * (self.resolution.height as f32 / self.resolution.width as f32);
+            // // Prerender Cone Tracing
+            // let cone_trace_params = ConeTracingParams {
+            //     view_mat,
+            //     eye,
+            //     resolution,
+            //     grid_size,
+            //     neg_z_depth,
+            //     cone_multiplier: {
+            //         let vertical_fov = field_of_view * (self.resolution.height as f32 / self.resolution.width as f32);
 
-                    let s = Vec2::new(
-                        (field_of_view / 2.0).tan() * 1.0 / self.resolution.width as f32,
-                        (vertical_fov / 2.0).tan() * 1.0 / self.resolution.height as f32,
-                    ).mag();
-                    1.0 / (1.0 + s)
-                },
-                ..Default::default()
-            };
+            //         let s = Vec2::new(
+            //             (field_of_view / 2.0).tan() * 1.0 / self.resolution.width as f32,
+            //             (vertical_fov / 2.0).tan() * 1.0 / self.resolution.height as f32,
+            //         ).mag();
+            //         1.0 / (1.0 + s)
+            //     },
+            //     ..Default::default()
+            // };
 
-            cpass.set_pipeline(&self.cone_trace_pipeline);
-            cpass.set_push_constants(0, unsafe {
-                slice::from_raw_parts(
-                    &cone_trace_params as *const _ as *const u8,
-                    mem::size_of::<ConeTracingParams>(),
-                )
-            });
-            cpass.set_bind_group(0, &self.cone_trace_bg, &[]);
-            cpass.dispatch(
-                (self.resolution.width + 64 * 8 - 1) / (64 * 8),
-                (self.resolution.height + 64 * 8 - 1) / (64 * 8),
-                1,
-            );
+            // cpass.set_pipeline(&self.cone_trace_pipeline);
+            // cpass.set_push_constants(0, unsafe {
+            //     slice::from_raw_parts(
+            //         &cone_trace_params as *const _ as *const u8,
+            //         mem::size_of::<ConeTracingParams>(),
+            //     )
+            // });
+            // cpass.set_bind_group(0, &self.cone_trace_bg, &[]);
+            // cpass.dispatch(
+            //     (self.resolution.width + 64 * 8 - 1) / (64 * 8),
+            //     (self.resolution.height + 64 * 8 - 1) / (64 * 8),
+            //     1,
+            // );
 
             // SDF Rendering
             let render_params = RenderParams {
@@ -180,6 +232,7 @@ impl SDFRender {
                 resolution,
                 light,
                 neg_z_depth,
+                grid_size,
                 ..Default::default()
             };
 
@@ -283,8 +336,10 @@ fn create_blit_components(
         }],
     });
 
-    let vertex_shader = device.create_shader_module(&wgpu::include_spirv!(env!("spirv://blit::vertex")));
-    let fragment_shader = device.create_shader_module(&wgpu::include_spirv!(env!("spirv://blit::fragment")));
+    let vertex_shader =
+        device.create_shader_module(&wgpu::include_spirv!(env!("spirv://blit::vertex")));
+    let fragment_shader =
+        device.create_shader_module(&wgpu::include_spirv!(env!("spirv://blit::fragment")));
 
     let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: None,
@@ -325,80 +380,77 @@ fn create_texture(device: &wgpu::Device, size: PhysicalSize<u32>) -> wgpu::Textu
         .create_view(&wgpu::TextureViewDescriptor::default())
 }
 
-fn create_starting_depth_buffer(device: &wgpu::Device, resolution: PhysicalSize<u32>) -> wgpu::Buffer {
-    let length = (resolution.width as usize * resolution.height as usize + 64 * 64 - 1) / (64 * 64);
-    println!("length: {}", length);
+// fn create_starting_depth_buffer(device: &wgpu::Device, resolution: PhysicalSize<u32>) -> wgpu::Buffer {
+//     let length = (resolution.width as usize * resolution.height as usize + 64 * 64 - 1) / (64 * 64);
 
-    device.create_buffer(&wgpu::BufferDescriptor {
-        label: None,
-        size: (length * mem::size_of::<f32>()) as u64,
-        usage: wgpu::BufferUsage::STORAGE,
-        mapped_at_creation: false,
-    })
-}
+//     device.create_buffer(&wgpu::BufferDescriptor {
+//         label: None,
+//         size: (length * mem::size_of::<f32>()) as u64,
+//         usage: wgpu::BufferUsage::STORAGE,
+//         mapped_at_creation: false,
+//     })
+// }
 
-fn create_cone_trace_components(
-    device: &wgpu::Device,
-) -> (wgpu::BindGroupLayout, wgpu::ComputePipeline) {
-    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: &[
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStage::COMPUTE,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Storage { read_only: false },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-        ],
-    });
+// fn create_cone_trace_components(
+//     device: &wgpu::Device,
+// ) -> (wgpu::BindGroupLayout, wgpu::ComputePipeline) {
+//     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+//         label: None,
+//         entries: &[
+//             wgpu::BindGroupLayoutEntry {
+//                 binding: 0,
+//                 visibility: wgpu::ShaderStage::COMPUTE,
+//                 ty: wgpu::BindingType::Buffer {
+//                     ty: wgpu::BufferBindingType::Storage { read_only: false },
+//                     has_dynamic_offset: false,
+//                     min_binding_size: None,
+//                 },
+//                 count: None,
+//             },
+//         ],
+//     });
 
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: None,
-        bind_group_layouts: &[&bind_group_layout],
-        push_constant_ranges: &[wgpu::PushConstantRange {
-            stages: wgpu::ShaderStage::COMPUTE,
-            range: 0..mem::size_of::<ConeTracingParams>() as u32,
-        }],
-    });
+//     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+//         label: None,
+//         bind_group_layouts: &[&bind_group_layout],
+//         push_constant_ranges: &[wgpu::PushConstantRange {
+//             stages: wgpu::ShaderStage::COMPUTE,
+//             range: 0..mem::size_of::<ConeTracingParams>() as u32,
+//         }],
+//     });
 
-    let shader = device.create_shader_module(&wgpu::include_spirv!(env!("spirv://compute_renderer::prerender_cone_trace")));
+//     let shader = device.create_shader_module(&wgpu::include_spirv!(env!("spirv://compute_renderer::prerender_cone_trace")));
 
-    println!("creating cone_trace compute pipeline");
-    let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: None,
-        layout: Some(&pipeline_layout),
-        module: &shader,
-        entry_point: "compute_renderer::prerender_cone_trace",
-    });
-    println!("created cone_trace compute pipeline");
+//     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+//         label: None,
+//         layout: Some(&pipeline_layout),
+//         module: &shader,
+//         entry_point: "compute_renderer::prerender_cone_trace",
+//     });
 
-    (bind_group_layout, pipeline)
-}
+//     (bind_group_layout, pipeline)
+// }
 
-fn create_cone_trace_bind_group(
-    device: &wgpu::Device,
-    layout: &wgpu::BindGroupLayout,
-    starting_depth_buffer: &wgpu::Buffer,
-) -> wgpu::BindGroup {
-    device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: None,
-        layout,
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer {
-                    buffer: &starting_depth_buffer,
-                    offset: 0,
-                    size: None,
-                },
-            },
-        ],
-    })
-}
+// fn create_cone_trace_bind_group(
+//     device: &wgpu::Device,
+//     layout: &wgpu::BindGroupLayout,
+//     starting_depth_buffer: &wgpu::Buffer,
+// ) -> wgpu::BindGroup {
+//     device.create_bind_group(&wgpu::BindGroupDescriptor {
+//         label: None,
+//         layout,
+//         entries: &[
+//             wgpu::BindGroupEntry {
+//                 binding: 0,
+//                 resource: wgpu::BindingResource::Buffer {
+//                     buffer: &starting_depth_buffer,
+//                     offset: 0,
+//                     size: None,
+//                 },
+//             },
+//         ],
+//     })
+// }
 
 fn create_sdf_final_components(
     device: &wgpu::Device,
@@ -406,16 +458,6 @@ fn create_sdf_final_components(
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: None,
         entries: &[
-            // wgpu::BindGroupLayoutEntry {
-            //     binding: 0,
-            //     visibility: wgpu::ShaderStage::COMPUTE,
-            //     ty: wgpu::BindingType::Buffer {
-            //         ty: wgpu::BufferBindingType::Storage { read_only: true },
-            //         has_dynamic_offset: false,
-            //         min_binding_size: None,
-            //     },
-            //     count: None,
-            // },
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStage::COMPUTE,
@@ -423,6 +465,26 @@ fn create_sdf_final_components(
                     access: wgpu::StorageTextureAccess::WriteOnly,
                     format: STORAGE_TEXTURE_FORMAT,
                     view_dimension: wgpu::TextureViewDimension::D2,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStage::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStage::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
                 },
                 count: None,
             },
@@ -438,40 +500,50 @@ fn create_sdf_final_components(
         }],
     });
 
-    let shader = device.create_shader_module(&wgpu::include_spirv!(env!("spirv://compute_renderer::render_sdf_final")));
+    let shader = device.create_shader_module(&wgpu::include_spirv!(env!(
+        "spirv://compute_renderer::render_sdf_final"
+    )));
 
-    println!("creating sdf_final compute pipeline");
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: None,
         layout: Some(&pipeline_layout),
         module: &shader,
         entry_point: "compute_renderer::render_sdf_final",
     });
-    println!("created sdf_final compute pipeline");
 
     (bind_group_layout, pipeline)
 }
 
 fn create_sdf_final_bind_group(
     device: &wgpu::Device,
-    texture: &wgpu::TextureView,
     layout: &wgpu::BindGroupLayout,
+    texture: &wgpu::TextureView,
+    tape: &wgpu::Buffer,
+    matrices: &wgpu::Buffer,
 ) -> wgpu::BindGroup {
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: None,
         layout,
         entries: &[
-            // wgpu::BindGroupEntry {
-            //     binding: 0,
-            //     resource: wgpu::BindingResource::Buffer {
-            //         buffer: &tape_buffer,
-            //         offset: 0,
-            //         size: None,
-            //     },
-            // },
             wgpu::BindGroupEntry {
                 binding: 0,
                 resource: wgpu::BindingResource::TextureView(texture),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: tape,
+                    offset: 0,
+                    size: None,
+                },
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: matrices,
+                    offset: 0,
+                    size: None,
+                },
             },
         ],
     })

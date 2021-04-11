@@ -21,7 +21,13 @@ pub struct Deriv3 {
 }
 
 impl Deriv3 {
-    pub fn new(v: Vec3) -> Self {
+    pub const ZERO: Self = Self {
+        x: Deriv::new(0.0),
+        y: Deriv::new(0.0),
+        z: Deriv::new(0.0),
+    };
+
+    pub fn new_xyz(v: Vec3) -> Self {
         let mut this = Self {
             x: Deriv::new(v.x),
             y: Deriv::new(v.y),
@@ -35,12 +41,20 @@ impl Deriv3 {
         this
     }
 
-    pub fn zero() -> Self {
-        Self::new(Vec3::ZERO)
+    pub fn new(v: Vec3) -> Self {
+        Self {
+            x: Deriv::new(v.x),
+            y: Deriv::new(v.y),
+            z: Deriv::new(v.z),
+        }
     }
 
     pub fn one() -> Self {
         Self::new(Vec3::ONE)
+    }
+
+    pub fn v(self) -> Vec3 {
+        Vec3::new(self.x.v, self.y.v, self.z.v)
     }
 
     pub fn dot(self, other: Self) -> Deriv {
@@ -227,11 +241,14 @@ pub struct Deriv {
 }
 
 impl Deriv {
+    pub const ZERO: Self = Self::new(0.0);
+    pub const ONE: Self = Self::new(1.0);
+
     pub const fn new(v: f32) -> Self {
-        Self::new_d(v, Vec3::ZERO)
+        Self::new_with_deriv(v, Vec3::ZERO)
     }
 
-    const fn new_d(v: f32, d: Vec3) -> Self {
+    pub const fn new_with_deriv(v: f32, d: Vec3) -> Self {
         Deriv { v, d }
     }
 
@@ -263,19 +280,27 @@ impl Deriv {
         }
     }
 
+    pub fn clamp(self, min: Self, max: Self) -> Self {
+        self.min(max).max(min)
+    }
+
+    pub fn lerp(self, other: Self, mix: Self) -> Self {
+        self + (other - self) * mix
+    }
+
     pub fn sqrt(self) -> Self {
         let a = self.v.sqrt();
-        Self::new_d(a, self.d / (a * 2.0))
+        Self::new_with_deriv(a, self.d / (a * 2.0))
     }
 
     pub fn sin(self) -> Self {
         let a = self.v.cos();
-        Self::new_d(self.v.sin(), self.d * a)
+        Self::new_with_deriv(self.v.sin(), self.d * a)
     }
 
     pub fn cos(self) -> Self {
         let a = -self.v.sin();
-        Self::new_d(self.v.cos(), self.d * a)
+        Self::new_with_deriv(self.v.cos(), self.d * a)
     }
 }
 
@@ -371,6 +396,6 @@ impl Neg for Deriv {
     type Output = Self;
 
     fn neg(self) -> Self {
-        Self::new_d(-self.v, -self.d)
+        Self::new_with_deriv(-self.v, -self.d)
     }
 }

@@ -13,9 +13,11 @@ codegen-units = 16
 [workspace]
 members = [
     "shaders/sdf-shader",
+    "shared",
 ]
 
 [dependencies]
+shared = { path = "shared" }
 wgpu = { git = "https://github.com/gfx-rs/wgpu-rs.git", features = ["cross"] }
 ultraviolet = { version = "0.8.0", features = ["int", "mint"] }
 mint = "0.5"
@@ -23,10 +25,12 @@ mint = "0.5"
 wgpu-subscriber = "0.1.0"
 winit = "0.24.0"
 pollster = "0.2.1"
+static_assertions = "1.1.0"
 
 [build-dependencies]
 shaderc = "0.7.1"
 spirv-builder = { git = "https://github.com/EmbarkStudios/rust-gpu.git", branch = "main" }
+cargo-emit = "0.1"
 
 # [patch.crates-io]
 # spirv_cross = { git = "https://github.com/lachlansneff/spirv_cross.git" }

@@ -1,4 +1,4 @@
-use glam::Vec3;
+use glam::{vec3, Vec3};
 
 use crate::{
     deriv::{Deriv, Deriv3},
@@ -11,7 +11,7 @@ pub fn sphere(p: Deriv3, r: f32) -> Deriv {
 
 pub fn rectangular_prism(p: Deriv3, sides: Vec3) -> Deriv {
     let q = p.abs() - sides;
-    q.max(Deriv3::zero()).length() + q.y.max(q.z.max(q.x.min(Deriv::new(0.0))))
+    q.max(Deriv3::ZERO).length() + q.y.max(q.z.max(q.x.min(Deriv::new(0.0))))
 }
 
 // pub fn cylinder(p: DualVec3, h: f32, r: f32) -> f32 {
@@ -30,4 +30,13 @@ pub fn union(lhs: Deriv, rhs: Deriv) -> Deriv {
 
 pub fn intersect(lhs: Deriv, rhs: Deriv) -> Deriv {
     lhs.max(rhs)
+}
+
+pub fn subtract(lhs: Deriv, rhs: Deriv) -> Deriv {
+    (-lhs).max(rhs)
+}
+
+pub fn smooth_union(lhs: Deriv, rhs: Deriv, k: f32) -> Deriv {
+    let h = ((rhs - lhs) * 0.5 / k + 0.5).clamp(Deriv::ZERO, Deriv::ONE);
+    rhs.lerp(lhs, h) - h * (-h + 1.0) * k
 }

@@ -31,7 +31,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) -> ! {
                 label: None,
                 features: wgpu::Features::PUSH_CONSTANTS,
                 limits: wgpu::Limits {
-                    max_push_constant_size: 112,
+                    max_push_constant_size: 128,
                     ..Default::default()
                 },
             },
