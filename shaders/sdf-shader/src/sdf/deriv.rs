@@ -1,8 +1,7 @@
-use glam::{vec3, Vec3};
+use glam::Vec3;
 
 use crate::{
-    deriv::{Deriv, Deriv3},
-    extra::VectorN as _,
+    arithmetic::{Arithmetics, Deriv, Deriv3},
 };
 
 pub fn sphere(p: Deriv3, r: f32) -> Deriv {
@@ -11,7 +10,7 @@ pub fn sphere(p: Deriv3, r: f32) -> Deriv {
 
 pub fn rectangular_prism(p: Deriv3, sides: Vec3) -> Deriv {
     let q = p.abs() - sides;
-    q.max(Deriv3::ZERO).length() + q.y.max(q.z.max(q.x.min(Deriv::new(0.0))))
+    q.max(0.0).length() + q.y.max(q.z.max(q.x.min(0.0)))
 }
 
 // pub fn cylinder(p: DualVec3, h: f32, r: f32) -> f32 {
@@ -19,10 +18,10 @@ pub fn rectangular_prism(p: Deriv3, sides: Vec3) -> Deriv {
 //     d.x.max(d.y).min(0.0) + d.max(Vec2::ZERO).length()
 // }
 
-pub fn schwarz_p(p: Deriv3, scale: f32, thickness: f32) -> Deriv {
-    let p = p * scale;
-    (p.cos().dot(Deriv3::one()).abs() / scale - thickness) * 0.6
-}
+// pub fn schwarz_p(p: Deriv3, scale: f32, thickness: f32) -> Deriv {
+//     let p = p * scale;
+//     (p.cos().dot(Deriv3::one()).abs() / scale - thickness) * 0.6
+// }
 
 pub fn union(lhs: Deriv, rhs: Deriv) -> Deriv {
     lhs.min(rhs)
@@ -37,6 +36,6 @@ pub fn subtract(lhs: Deriv, rhs: Deriv) -> Deriv {
 }
 
 pub fn smooth_union(lhs: Deriv, rhs: Deriv, k: f32) -> Deriv {
-    let h = ((rhs - lhs) * 0.5 / k + 0.5).clamp(Deriv::ZERO, Deriv::ONE);
+    let h = ((rhs - lhs) * 0.5 / k + 0.5).clamp(0.0, 1.0);
     rhs.lerp(lhs, h) - h * (-h + 1.0) * k
 }

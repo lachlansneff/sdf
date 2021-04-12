@@ -1,5 +1,5 @@
 use crate::{
-    deriv::{Deriv, Deriv3},
+    arithmetic::{Deriv, Deriv3, Affine, Affine3},
     sdf,
 };
 use core::convert::identity;

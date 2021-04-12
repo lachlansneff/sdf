@@ -1,21 +1,55 @@
 //! This is an implementation of interval arithmetic.
 
-use core::ops::{Add, Div, Mul, Sub};
+use core::ops::{Add, Div, Mul, Neg, Sub};
 
-use num_traits::Float as _;
+use spirv_std::num_traits::Float as _;
 
-pub fn interval(low: f32, high: f32) -> Interval {
+pub const fn interval(low: f32, high: f32) -> Interval {
     Interval { low, high }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Interval {
     pub low: f32,
     pub high: f32,
 }
 
 impl Interval {
+    pub fn abs(self) -> Self {
+        if self.high < 0.0 {
+            -self
+        } else if self.low > 0.0 {
+            self
+        } else {
+            interval(0.0, (-self.low).max(self.high))
+        }
+    }
 
+    pub fn sqrt(self) -> Self {
+        if self.low < 0.0 {
+            interval(0.0, self.high.sqrt())
+        } else {
+            interval(self.low.sqrt(), self.high.sqrt())
+        }
+    }
+
+    pub fn sin(self) -> Self {
+        // TODO: Refine this later.
+        interval(-1.0, 1.0)
+    }
+
+    pub fn cos(self) -> Self {
+        // TODO: Refine this later.
+        interval(-1.0, 1.0)
+    }
+}
+
+impl Neg for Interval {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        interval(-self.high, -self.low)
+    }
 }
 
 impl Add for Interval {
@@ -45,8 +79,8 @@ impl Sub for Interval {
 
     fn sub(self, rhs: Self) -> Self::Output {
         Self {
-            low: self.low - rhs.low,
-            high: self.high - rhs.high,
+            low: self.low - rhs.high,
+            high: self.high - rhs.low,
         }
     }
 }
@@ -59,6 +93,14 @@ impl Sub<f32> for Interval {
             low: self.low - rhs,
             high: self.high - rhs,
         }
+    }
+}
+
+impl Sub<Interval> for f32 {
+    type Output = Interval;
+
+    fn sub(self, rhs: Interval) -> Self::Output {
+        interval(self - rhs.low, self - rhs.high)
     }
 }
 
@@ -131,5 +173,19 @@ impl Div<f32> for Interval {
             low: xa.min(ya),
             high: xa.max(ya),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn interval_bounds() {
+        let f1 = |x| x * (10.0 - x);
+        assert_eq!(f1(interval(4.0, 6.0)), interval(16.0, 36.0));
+
+        let f2 = |x| x * 10.0 - x * x;
+        assert_eq!(f2(interval(4.0, 6.0)), interval(4.0, 44.0));
     }
 }

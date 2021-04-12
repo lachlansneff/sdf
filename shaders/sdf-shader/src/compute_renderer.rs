@@ -1,4 +1,6 @@
-use glam::{vec3, Mat4, UVec2, UVec3, Vec3, Vec3Swizzles, Vec4Swizzles};
+use core::sync::atomic::AtomicUsize;
+
+use glam::{Mat4, UVec2, UVec3, Vec3, Vec3Swizzles, Vec4Swizzles, uvec2, vec3};
 
 use shared::inst::Inst;
 #[cfg(not(target_arch = "spirv"))]
@@ -16,25 +18,26 @@ use crate::interpreter;
 //     cone_multiplier: f32,
 // }
 
-// /// Runs on 64 pixel x 64 pixel tiles.
+// /// Runs on 64 pixel x 64 pixel tiles and uses the initial tape.
+// /// 
 // #[spirv(compute(threads(8, 8, 1)))]
-// pub fn prerender_cone_trace(
+// pub fn cone_push_64x64(
 //     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
 //     #[spirv(num_workgroups)] num_workgroups: UVec3,
 //     #[spirv(push_constant)] params: &ConeTracingParams,
-//     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] starting_depths: &mut [f32],
+//     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] initial_tape: &[Inst],
+//     #[spirv(storage_buffer, descriptor_set = 0, binding = 1)] starting_depths: &mut [f32],
 // ) {
-//     let tile = global_invocation_id.xy();
+//     let tile_coords = global_invocation_id.xy();
 
-//     if tile.x >= params.grid_size.x || tile.y >= params.grid_size.y {
+//     if tile_coords.x >= params.grid_size.x || tile_coords.y >= params.grid_size.y {
 //         // If we're off the edge, just return.
 //         // This will happen when the resolution width or height aren't multiples
 //         // of 64 * 8.
 //         return;
 //     }
 
-//     let grid_size = num_workgroups.xy() * 8;
-//     let tile_center = tile * grid_size + uvec2(32, 32);
+//     let tile_center = tile_coords * 64 + uvec2(32, 32);
 
 //     let ray_dir = compute_ray_direction(
 //         params.resolution,
@@ -43,7 +46,7 @@ use crate::interpreter;
 //         tile_center,
 //     );
 
-//     let idx = tile.y as usize * grid_size.x as usize + tile.x as usize;
+//     let idx = tile_coords.y as usize * params.grid_size.x as usize + tile_coords.x as usize;
 //     starting_depths[idx] = cone_march(params.eye, ray_dir, params.cone_multiplier, sdf);
 // }
 
@@ -76,10 +79,47 @@ pub struct RenderParams {
     resolution: UVec2,
     grid_size: UVec2,
     neg_z_depth: f32,
+    /// The size of the initial instruction tape.
+    initial_tape_len: usize,
+    /// The starting index of the space available for
+    /// the 8x8 tile tape optimizer.
+    tile8x8_tape_start: usize,
 }
 
 #[cfg(target_arch = "spirv")]
 static_assertions::assert_eq_size!(RenderParams, [u8; 128]);
+
+/// The initial tape is stored at 0..params.initial_tape_len.
+/// This runs on a 64x64 pixel tile.
+///
+/// Because parts of the model could be at any depth within the tile, this evaluates
+/// the initial tape on the entire beam volume with the x and y intervals
+/// corresponding to the tiles bounds in world coordinates and the z interval stretching
+/// from the near plane to the far plane.
+#[spirv(compute(threads(8, 8, 1)))]
+pub fn optimize_64x64_tiles(
+    #[spirv(global_invocation_id)] global_invocation_id: UVec3,
+    #[spirv(push_constant)] params: &RenderParams,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] global_tapes: &mut [Inst],
+    // #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
+) {
+    let tile_coords = global_invocation_id.xy();
+    
+    if tile_coords.x >= params.grid_size.x || tile_coords.y >= params.grid_size.y {
+        return;
+    }
+
+    let tile_center = tile_coords * 64 + uvec2(32, 32);
+
+    let ray_dir = compute_ray_direction(
+        params.resolution,
+        params.neg_z_depth,
+        params.view_mat,
+        tile_center,
+    );
+
+
+}
 
 #[spirv(compute(threads(8, 8, 1)))]
 pub fn render_sdf_final(

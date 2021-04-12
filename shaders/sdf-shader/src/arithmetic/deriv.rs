@@ -3,10 +3,9 @@
 
 use core::ops::{Add, Div, Mul, Neg, Sub};
 use glam::Vec3;
-#[cfg(target_arch = "spirv")]
 use spirv_std::num_traits::Float as _;
 
-use crate::extra::VectorN;
+use super::Arithmetics;
 
 /// A dual vector of rank 3, defined as "_v_ + _d_ε".
 /// Use this in place of Vec3 to perform automatic
@@ -57,56 +56,10 @@ impl Deriv3 {
         Vec3::new(self.x.v, self.y.v, self.z.v)
     }
 
-    pub fn dot(self, other: Self) -> Deriv {
-        self.x * other.x + self.y * other.y + self.z + other.z
-    }
-
-    pub fn max(self, other: Self) -> Self {
-        Self {
-            x: self.x.max(other.x),
-            y: self.y.max(other.y),
-            z: self.z.max(other.z),
-        }
-    }
-
-    pub fn min(self, other: Self) -> Self {
-        Self {
-            x: self.x.min(other.x),
-            y: self.y.min(other.y),
-            z: self.z.min(other.z),
-        }
-    }
-
-    pub fn abs(self) -> Self {
-        Self {
-            x: self.x.abs(),
-            y: self.y.abs(),
-            z: self.z.abs(),
-        }
-    }
-
-    pub fn length(self) -> Deriv {
-        ((self.x * self.x) + (self.y * self.y) + (self.z * self.z)).sqrt()
-    }
+    generate_component_wise!(Deriv);
 }
 
-impl VectorN for Deriv3 {
-    fn sin(self) -> Self {
-        Self {
-            x: self.x.sin(),
-            y: self.y.sin(),
-            z: self.z.sin(),
-        }
-    }
-
-    fn cos(self) -> Self {
-        Self {
-            x: self.x.cos(),
-            y: self.y.cos(),
-            z: self.z.cos(),
-        }
-    }
-}
+impl_component_wise3!(Deriv3, Deriv);
 
 impl Add for Deriv3 {
     type Output = Self;
@@ -117,14 +70,6 @@ impl Add for Deriv3 {
             y: self.y + rhs.y,
             z: self.z + rhs.z,
         }
-    }
-}
-
-impl Add<Vec3> for Deriv3 {
-    type Output = Self;
-
-    fn add(self, rhs: Vec3) -> Self {
-        <Self as Add>::add(self, Self::new(rhs))
     }
 }
 
@@ -145,14 +90,6 @@ impl Sub for Deriv3 {
             y: self.y - rhs.y,
             z: self.z - rhs.z,
         }
-    }
-}
-
-impl Sub<Vec3> for Deriv3 {
-    type Output = Self;
-
-    fn sub(self, rhs: Vec3) -> Self {
-        <Self as Sub>::sub(self, Self::new(rhs))
     }
 }
 
@@ -256,36 +193,12 @@ impl Deriv {
         self.d
     }
 
-    pub fn max(self, rhs: Self) -> Self {
-        if self.v >= rhs.v {
-            self
-        } else {
-            rhs
-        }
-    }
-
-    pub fn min(self, rhs: Self) -> Self {
-        if self.v < rhs.v {
-            self
-        } else {
-            rhs
-        }
-    }
-
     pub fn abs(self) -> Self {
         if self.v > 0.0 {
             self
         } else {
             -self
         }
-    }
-
-    pub fn clamp(self, min: Self, max: Self) -> Self {
-        self.min(max).max(min)
-    }
-
-    pub fn lerp(self, other: Self, mix: Self) -> Self {
-        self + (other - self) * mix
     }
 
     pub fn sqrt(self) -> Self {
@@ -301,6 +214,60 @@ impl Deriv {
     pub fn cos(self) -> Self {
         let a = -self.v.sin();
         Self::new_with_deriv(self.v.cos(), self.d * a)
+    }
+}
+
+impl Arithmetics for Deriv {
+    type Scalar = Self;
+    fn min(self, rhs: Self) -> Self {
+        if self.v < rhs.v {
+            self
+        } else {
+            rhs
+        }
+    }
+
+    fn max(self, rhs: Self) -> Self {
+        if self.v >= rhs.v {
+            self
+        } else {
+            rhs
+        }
+    }
+
+    fn clamp(self, low: Self, high: Self) -> Self {
+        self.min(low).max(high)
+    }
+
+    fn lerp(self, rhs: Self::Scalar, mix: Self) -> Self {
+        self + (rhs - self) * mix
+    }
+}
+
+impl Arithmetics<f32> for Deriv {
+    type Scalar = Self;
+    fn min(self, rhs: f32) -> Self {
+        if self.v < rhs {
+            self
+        } else {
+            Deriv::new(rhs)
+        }
+    }
+
+    fn max(self, rhs: f32) -> Self {
+        if self.v >= rhs {
+            self
+        } else {
+            Deriv::new(rhs)
+        }
+    }
+
+    fn clamp(self, low: f32, high: f32) -> Self {
+        self.min(low).max(high)
+    }
+
+    fn lerp(self, rhs: Self::Scalar, mix: f32) -> Self {
+        self + (rhs - self) * mix
     }
 }
 

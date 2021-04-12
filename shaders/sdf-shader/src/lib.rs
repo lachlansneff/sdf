@@ -5,12 +5,15 @@
     register_attr(spirv)
 )]
 
+#![feature(const_fn_floating_point_arithmetic)]
+
 // #![deny(warnings)]
 
 // mod arrayvec;
+mod arithmetic;
 pub mod blit;
 pub mod compute_renderer;
-mod deriv;
 mod extra;
 mod interpreter;
 mod sdf;
+

@@ -1,7 +1,6 @@
 use core::ops::{Add, Div, Mul, Sub};
 
 use glam::{vec2, vec3, Vec2, Vec3};
-#[cfg(target_arch = "spirv")]
 use spirv_std::num_traits::Float;
 
 pub trait VectorN: Sized {
