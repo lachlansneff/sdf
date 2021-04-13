@@ -59,9 +59,9 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
 name = "bimap"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f92b72b8f03128773278bf74418b9205f3d2a12c39a61f92395f47af390c32bf"
+checksum = "50ae17cabbc8a38a1e3e4c1a6a664e9a09672dc14d0896fa8d865d3a5a446b07"
 
 [[package]]
 name = "bit-set"
@@ -1168,9 +1168,9 @@ checksum = "3831453b3449ceb48b6d9c7ad7c96d5ea673e9b470a1dc578c2ce6521230884c"
 
 [[package]]
 name = "pollster"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75721b4c756dd61e006f1d3fe1e44bda75ad3a3d8eaa45e9f32943cbe635e663"
+checksum = "6cce106fd2646acbe31a0e4006f75779d535c26a44f153ada196e9edcfc6d944"
 
 [[package]]
 name = "proc-macro-crate"
@@ -1284,8 +1284,8 @@ checksum = "6e3bad0ee36814ca07d7968269dd4b7ec89ec2da10c4bb613928d3077083c232"
 
 [[package]]
 name = "rustc_codegen_spirv"
-version = "0.4.0-alpha.3"
-source = "git+https://github.com/EmbarkStudios/rust-gpu.git?branch=main#4395b84114115752df2829c23109bb6c5048f4ec"
+version = "0.4.0-alpha.5"
+source = "git+https://github.com/EmbarkStudios/rust-gpu.git?branch=main#b6311789bb4868bd8176d792d4bccfb83406383f"
 dependencies = [
  "bimap",
  "hashbrown",
@@ -1494,8 +1494,8 @@ dependencies = [
 
 [[package]]
 name = "spirv-builder"
-version = "0.4.0-alpha.3"
-source = "git+https://github.com/EmbarkStudios/rust-gpu.git?branch=main#4395b84114115752df2829c23109bb6c5048f4ec"
+version = "0.4.0-alpha.5"
+source = "git+https://github.com/EmbarkStudios/rust-gpu.git?branch=main#b6311789bb4868bd8176d792d4bccfb83406383f"
 dependencies = [
  "memchr",
  "raw-string",
@@ -1506,9 +1506,9 @@ dependencies = [
 
 [[package]]
 name = "spirv-std"
-version = "0.4.0-alpha.4"
+version = "0.4.0-alpha.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "895a86b30e3dab8b15ca414bdf1d5d3f132374debb8bf03ca5e89109f674a171"
+checksum = "84eade459bc111a931804e49afdd1935fb115fff42afaccb35777b4a1bbad9c4"
 dependencies = [
  "num-traits",
  "spirv-std-macros",
@@ -1516,9 +1516,9 @@ dependencies = [
 
 [[package]]
 name = "spirv-std-macros"
-version = "0.4.0-alpha.4"
+version = "0.4.0-alpha.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b76d9abb9f30d0da7c54e164efecbfab6c8af3493ae41d43c38ebfbb80b9894"
+checksum = "789e03eacd37ed496c7648bb7866a5ed6ae8959bf222bfde4c8afc23e28de7c6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1596,9 +1596,9 @@ checksum = "6446ced80d6c486436db5c078dde11a9f73d42b57fb273121e160b84f63d894c"
 
 [[package]]
 name = "syn"
-version = "1.0.68"
+version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ce15dd3ed8aa2f8eeac4716d6ef5ab58b6b9256db41d7e1a0224c2788e8fd87"
+checksum = "48fe99c6bd8b1cc636890bcc071842de909d902c81ac7dab53ba33c421ab8ffb"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1946,7 +1946,7 @@ dependencies = [
 [[package]]
 name = "wgpu"
 version = "0.7.0"
-source = "git+https://github.com/gfx-rs/wgpu-rs.git#1de388afacee29fc2acb922f16081399839e57fa"
+source = "git+https://github.com/gfx-rs/wgpu-rs.git?rev=1de388afacee29fc2acb922f16081399839e57fa#1de388afacee29fc2acb922f16081399839e57fa"
 dependencies = [
  "arrayvec",
  "js-sys",

@@ -79,57 +79,57 @@ pub struct RenderParams {
     resolution: UVec2,
     grid_size: UVec2,
     neg_z_depth: f32,
-    /// The size of the initial instruction tape.
-    initial_tape_len: usize,
-    /// The starting index of the space available for
-    /// the 8x8 tile tape optimizer.
-    tile8x8_tape_start: usize,
+    // /// The size of the initial instruction tape.
+    // initial_tape_len: usize,
+    // /// The starting index of the space available for
+    // /// the 8x8 tile tape optimizer.
+    // tile8x8_tape_start: usize,
 }
 
 #[cfg(target_arch = "spirv")]
 static_assertions::assert_eq_size!(RenderParams, [u8; 128]);
 
-/// The initial tape is stored at 0..params.initial_tape_len.
-/// This runs on a 64x64 pixel tile.
-///
-/// Because parts of the model could be at any depth within the tile, this evaluates
-/// the initial tape on the entire beam volume with the x and y intervals
-/// corresponding to the tiles bounds in world coordinates and the z interval stretching
-/// from the near plane to the far plane.
-#[spirv(compute(threads(8, 8, 1)))]
-pub fn evaluate_ray_volume_64x64_tiles(
-    #[spirv(global_invocation_id)] global_invocation_id: UVec3,
-    #[spirv(push_constant)] params: &RenderParams,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] global_tapes: &mut [Inst],
-    // #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
-) {
-    let tile_coords = global_invocation_id.xy();
+// /// The initial tape is stored at 0..params.initial_tape_len.
+// /// This runs on a 64x64 pixel tile.
+// ///
+// /// Because parts of the model could be at any depth within the tile, this evaluates
+// /// the initial tape on the entire beam volume with the x and y intervals
+// /// corresponding to the tiles bounds in world coordinates and the z interval stretching
+// /// from the near plane to the far plane.
+// #[spirv(compute(threads(8, 8, 1)))]
+// pub fn evaluate_ray_volume_64x64_tiles(
+//     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
+//     #[spirv(push_constant)] params: &RenderParams,
+//     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] global_tapes: &mut [Inst],
+//     // #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
+// ) {
+//     let tile_coords = global_invocation_id.xy();
     
-    if tile_coords.x >= params.grid_size.x || tile_coords.y >= params.grid_size.y {
-        return;
-    }
+//     if tile_coords.x >= params.grid_size.x || tile_coords.y >= params.grid_size.y {
+//         return;
+//     }
 
-    let tile_center = tile_coords * 64 + uvec2(32, 32);
+//     let tile_center = tile_coords * 64 + uvec2(32, 32);
 
-    let ro = params.eye;
-    let rd = compute_ray_direction(
-        params.resolution,
-        params.neg_z_depth,
-        params.view_mat,
-        tile_center,
-    );
-    // Is this the near and far clip distances?
-    let t = interval(0.0, 1.0);
+//     let ro = params.eye;
+//     let rd = compute_ray_direction(
+//         params.resolution,
+//         params.neg_z_depth,
+//         params.view_mat,
+//         tile_center,
+//     );
+//     // Is this the near and far clip distances?
+//     let t = interval(0.0, 1.0);
 
-    // This *should* be a skewed bounding box.
-    let ray_bounds = Affine3 {
-        x: (t * rd.x + ro.x).into(),
-        y: (t * rd.y + ro.y).into(),
-        z: (t * rd.z + ro.z).into(),
-    };
+//     // This *should* be a skewed bounding box.
+//     let ray_bounds = Affine3 {
+//         x: (t * rd.x + ro.x).into(),
+//         y: (t * rd.y + ro.y).into(),
+//         z: (t * rd.z + ro.z).into(),
+//     };
 
 
-}
+// }
 
 #[spirv(compute(threads(8, 8, 1)))]
 pub fn render_sdf_final(

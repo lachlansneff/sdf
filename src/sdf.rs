@@ -9,6 +9,19 @@ use shared::inst::{Inst, RectangularPrism, Ret, SmoothUnion, Sphere};
 
 const STORAGE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
+macro_rules! include_spirv {
+    ($($token:tt)*) => {
+        {
+            //log::info!("including '{}'", $($token)*);
+            wgpu::ShaderModuleDescriptor {
+                label: Some($($token)*),
+                source: wgpu::util::make_spirv(include_bytes!($($token)*)),
+                flags: wgpu::ShaderFlags::empty(),
+            }
+        }
+    };
+}
+
 struct Pad<const N: usize>([u8; N]);
 
 impl<const N: usize> Default for Pad<N> {
@@ -337,9 +350,9 @@ fn create_blit_components(
     });
 
     let vertex_shader =
-        device.create_shader_module(&wgpu::include_spirv!(env!("spirv://blit::vertex")));
+        device.create_shader_module(&include_spirv!(env!("spirv://blit::vertex")));
     let fragment_shader =
-        device.create_shader_module(&wgpu::include_spirv!(env!("spirv://blit::fragment")));
+        device.create_shader_module(&include_spirv!(env!("spirv://blit::fragment")));
 
     let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: None,
@@ -419,7 +432,7 @@ fn create_texture(device: &wgpu::Device, size: PhysicalSize<u32>) -> wgpu::Textu
 //         }],
 //     });
 
-//     let shader = device.create_shader_module(&wgpu::include_spirv!(env!("spirv://compute_renderer::prerender_cone_trace")));
+//     let shader = device.create_shader_module(&include_spirv!(env!("spirv://compute_renderer::prerender_cone_trace")));
 
 //     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
 //         label: None,
@@ -500,7 +513,7 @@ fn create_sdf_final_components(
         }],
     });
 
-    let shader = device.create_shader_module(&wgpu::include_spirv!(env!(
+    let shader = device.create_shader_module(&include_spirv!(env!(
         "spirv://compute_renderer::render_sdf_final"
     )));
 

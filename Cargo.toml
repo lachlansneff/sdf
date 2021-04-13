@@ -18,7 +18,7 @@ members = [
 
 [dependencies]
 shared = { path = "shared" }
-wgpu = { git = "https://github.com/gfx-rs/wgpu-rs.git", features = ["cross"] }
+wgpu = { git = "https://github.com/gfx-rs/wgpu-rs.git", features = ["cross"], rev = "1de388afacee29fc2acb922f16081399839e57fa" }
 ultraviolet = { version = "0.8.0", features = ["int", "mint"] }
 mint = "0.5"
 # crevice = "0.6.0"
