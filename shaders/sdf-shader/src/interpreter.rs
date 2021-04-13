@@ -19,6 +19,7 @@ fn transform_deriv3_by_mat4(mat: &Mat4, a: Deriv3) -> Deriv3 {
 
 macro_rules! generate_interpreter {
     ($name:ident<$ty:ty>, $sdf_path:path, $p:expr, $reg_init:expr, $mat_transform:expr) => {
+        #[inline(always)]
         pub fn $name(tape: &[Inst], matrices: &[Mat4], p: Vec3) -> $ty {
             use $sdf_path as s;
             const REG_INIT: [$ty; 2] = $reg_init;
@@ -78,3 +79,55 @@ generate_interpreter!(
     [Deriv::ZERO, Deriv::ZERO],
     transform_deriv3_by_mat4
 );
+
+
+#[inline(always)]
+pub fn sdf_affine(tape: &[Inst], matrices: &[Mat4], p: Affine3) -> Affine {
+    const REG_INIT: [Affine; 2] = [Affine::ZERO, Affine::ZERO];
+
+    let mut i = 0;
+    let mut regs = REG_INIT;
+
+    loop {
+        let inst = tape[i];
+        match inst.op() {
+            Op::Ret => {
+                return regs[inst.reg()];
+            }
+
+            // Combinations
+            Op::Union => {
+                let (d, choice) = sdf::affine::union(regs[0], regs[1]);
+                regs[inst.reg()] = d;
+            }
+            Op::Intersection => {
+                let (d, choice) = sdf::affine::intersect(regs[0], regs[1]);;
+                regs[inst.reg()] = d;
+            }
+            Op::Subtraction => {
+                let (d, choice) = sdf::affine::subtract(regs[0], regs[1]);
+                regs[inst.reg()] = d;
+            }
+            Op::SmoothUnion => {
+                let su = inst.extract::<SmoothUnion>();
+                regs[inst.reg()] = sdf::affine::smooth_union(regs[0], regs[1], su.k);
+            }
+            Op::SmoothIntersection => {}
+            Op::SmoothSubtraction => {}
+
+            // Shapes
+            Op::Sphere => {
+                let sphere = inst.extract::<Sphere>();
+                // let mat = &matrices[0];
+                regs[inst.reg()] = sdf::affine::sphere(p, sphere.radius);
+            }
+            Op::RectangularPrism => {
+                let prism = inst.extract::<RectangularPrism>();
+                // let mat = &matrices[0];
+                regs[inst.reg()] = sdf::affine::rectangular_prism(p, vec3(prism.x, prism.y, prism.z))
+            }
+        }
+
+        i += 1;
+    }
+}

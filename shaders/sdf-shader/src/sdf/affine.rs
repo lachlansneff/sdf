@@ -1,6 +1,6 @@
 #[cfg(target_arch = "spirv")]
 use spirv_std::num_traits::Float as _;
-use crate::{arithmetic::{Affine, Affine3, Arithmetics}};
+use crate::{arithmetic::{Affine, Affine3, Arithmetics, Choice}};
 use glam::Vec3;
 
 pub fn sphere(p: Affine3, r: f32) -> Affine {
@@ -27,16 +27,16 @@ pub fn rectangular_prism(p: Affine3, sides: Vec3) -> Affine {
 //     (p.cos().dot(Vec3::ONE).abs() / scale - thickness) * 0.6
 // }
 
-pub fn union(lhs: Affine, rhs: Affine) -> Affine {
-    lhs.min(rhs)
+pub fn union(lhs: Affine, rhs: Affine) -> (Affine, Choice) {
+    lhs.min_choice(rhs)
 }
 
-pub fn intersect(lhs: Affine, rhs: Affine) -> Affine {
-    lhs.max(rhs)
+pub fn intersect(lhs: Affine, rhs: Affine) -> (Affine, Choice) {
+    lhs.max_choice(rhs)
 }
 
-pub fn subtract(lhs: Affine, rhs: Affine) -> Affine {
-    (-lhs).max(rhs)
+pub fn subtract(lhs: Affine, rhs: Affine) -> (Affine, Choice) {
+    (-lhs).max_choice(rhs)
 }
 
 pub fn smooth_union(lhs: Affine, rhs: Affine, k: f32) -> Affine {

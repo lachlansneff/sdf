@@ -6,7 +6,7 @@ use shared::inst::Inst;
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
-use crate::interpreter;
+use crate::{arithmetic::{Affine3, interval}, interpreter};
 
 // #[repr(C)]
 // pub struct ConeTracingParams {
@@ -97,7 +97,7 @@ static_assertions::assert_eq_size!(RenderParams, [u8; 128]);
 /// corresponding to the tiles bounds in world coordinates and the z interval stretching
 /// from the near plane to the far plane.
 #[spirv(compute(threads(8, 8, 1)))]
-pub fn optimize_64x64_tiles(
+pub fn evaluate_ray_volume_64x64_tiles(
     #[spirv(global_invocation_id)] global_invocation_id: UVec3,
     #[spirv(push_constant)] params: &RenderParams,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] global_tapes: &mut [Inst],
@@ -111,12 +111,22 @@ pub fn optimize_64x64_tiles(
 
     let tile_center = tile_coords * 64 + uvec2(32, 32);
 
-    let ray_dir = compute_ray_direction(
+    let ro = params.eye;
+    let rd = compute_ray_direction(
         params.resolution,
         params.neg_z_depth,
         params.view_mat,
         tile_center,
     );
+    // Is this the near and far clip distances?
+    let t = interval(0.0, 1.0);
+
+    // This *should* be a skewed bounding box.
+    let ray_bounds = Affine3 {
+        x: (t * rd.x + ro.x).into(),
+        y: (t * rd.y + ro.y).into(),
+        z: (t * rd.z + ro.z).into(),
+    };
 
 
 }
