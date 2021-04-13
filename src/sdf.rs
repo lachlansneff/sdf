@@ -9,7 +9,7 @@ use shared::inst::{Inst, RectangularPrism, Ret, SmoothUnion, Sphere};
 
 const STORAGE_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
-macro_rules! include_spirv {
+macro_rules! include_spirv_shader {
     ($($token:tt)*) => {
         {
             //log::info!("including '{}'", $($token)*);
@@ -350,9 +350,9 @@ fn create_blit_components(
     });
 
     let vertex_shader =
-        device.create_shader_module(&include_spirv!(env!("spirv://blit::vertex")));
+        device.create_shader_module(&include_spirv_shader!(env!("spirv://blit::vertex")));
     let fragment_shader =
-        device.create_shader_module(&include_spirv!(env!("spirv://blit::fragment")));
+        device.create_shader_module(&include_spirv_shader!(env!("spirv://blit::fragment")));
 
     let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: None,
@@ -513,7 +513,7 @@ fn create_sdf_final_components(
         }],
     });
 
-    let shader = device.create_shader_module(&include_spirv!(env!(
+    let shader = device.create_shader_module(&include_spirv_shader!(env!(
         "spirv://compute_renderer::render_sdf_final"
     )));
 
